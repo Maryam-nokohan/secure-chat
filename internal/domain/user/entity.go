@@ -1,9 +1,9 @@
 package user
 
 type User struct {
-	Userame     string
-	UserId      string
-	PassHash    string
+	ID          string `gorm:"primaryKey"`
+	Username    string `gorm:"uniqueIndex;not null"`
+	PassHash    string `gorm:"not null"`
 	HasUsername bool
 	Bio         string
 	IsActive    bool
