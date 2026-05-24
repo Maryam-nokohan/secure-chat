@@ -1,0 +1,46 @@
+# --- Go Specific ---
+# Binary files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# Output binaries (if you build them in the root or cmd folder)
+server
+cmd/server/server
+
+# Dependency directories
+vendor/
+
+# --- Environment and Secret Files ---
+# NEVER commit your secrets or database connection strings
+.env
+.env.local
+.env.*.local
+config.yaml
+secrets.json
+
+# --- IDEs and Editors ---
+# VS Code
+.vscode/
+# GoLand / IntelliJ
+.idea/
+# General Editor files
+*.swp
+*.swo
+.DS_Store
+
+# --- Build, Logs, and Data ---
+# If your application creates logs or temporary database files
+*.log
+*.tmp
+*.bak
+# Local database files (e.g., SQLite or local dumps)
+*.db
+*.sqlite
+*.sqlite-journal
+
+# --- Test Files ---
+# If you have coverage reports
+*.out
+*.test
