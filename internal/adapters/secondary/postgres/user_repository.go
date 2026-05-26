@@ -8,7 +8,6 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/user"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -16,6 +15,7 @@ type UserDB struct {
 	ID           uuid.UUID `gorm:"type:uuid;primary_key"`
 	Username     string    `gorm:"uniqueIndex;not null"`
 	PasswordHash string    `gorm:"not null"`
+	Bio          string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -36,6 +36,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user user.User) error {
 		ID:           user.ID,
 		Username:     user.Username,
 		PasswordHash: user.PassHash,
+		Bio:          user.Bio,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -59,6 +60,7 @@ func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*user.
 		ID:       dbModel.ID,
 		Username: dbModel.Username,
 		PassHash: dbModel.PasswordHash,
+		Bio: dbModel.Bio,
 	}, nil
 }
 func (r *UserRepository) FindUserByUsername(ctx context.Context, username string) (*user.User, error) {
@@ -78,6 +80,7 @@ func (r *UserRepository) FindUserByUsername(ctx context.Context, username string
 		ID:       dbModel.ID,
 		Username: dbModel.Username,
 		PassHash: dbModel.PasswordHash,
+		Bio: dbModel.Bio,
 	}, nil
 }
 func (r *UserRepository) EditUser(ctx context.Context, user user.User) error {
@@ -89,6 +92,7 @@ func (r *UserRepository) EditUser(ctx context.Context, user user.User) error {
 
 	dbModel.Username = user.Username
 	dbModel.PasswordHash = user.PassHash
+	dbModel.Bio = user.Bio
 	dbModel.UpdatedAt = time.Now()
 
 	if err := r.db.WithContext(ctx).Save(&dbModel).Error; err != nil {
