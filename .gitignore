@@ -7,7 +7,6 @@
 *.dylib
 # Output binaries (if you build them in the root or cmd folder)
 server
-cmd/server/server
 dontpush/
 
 # Dependency directories
