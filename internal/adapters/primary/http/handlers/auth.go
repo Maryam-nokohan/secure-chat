@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	csrf "github.com/utrack/gin-csrf"
 
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/dto"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
@@ -26,6 +27,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			"register.html",
 			gin.H{
 				"error": "invalid form",
+				"csrfToken": csrf.GetToken(c),
 			},
 		)
 		return
@@ -40,6 +42,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			"register.html",
 			gin.H{
 				"error": err.Error(),
+				"csrfToken": csrf.GetToken(c),
 			},
 		)
 
@@ -69,6 +72,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"login.html",
 			gin.H{
 				"error": err.Error(),
+				"csrfToken": csrf.GetToken(c),
 			},
 		)
 		return
@@ -83,6 +87,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"login.html",
 			gin.H{
 				"error": err.Error(),
+				"csrfToken": csrf.GetToken(c),
 			},
 		)
 

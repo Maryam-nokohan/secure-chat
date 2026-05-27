@@ -8,5 +8,6 @@ type Config struct {
 	DBName     string
 	DSN        string
 
-	JWTSecret string
+	JWTSecret   string
+	CSRFSecrete string
 }

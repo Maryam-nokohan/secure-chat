@@ -16,6 +16,12 @@
 <form action="/login" method="POST">
 
     <input
+        type="hidden"
+        name="_csrf"
+        value="{{.csrfToken}}"
+    >
+
+    <input
         type="text"
         name="username"
         placeholder="Username"
@@ -35,8 +41,8 @@
 
 </form>
 
-<a href="/chat">
-    Chat
+<a href="/register">
+    Register?
 </a>
 
 </body>

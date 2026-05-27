@@ -21,6 +21,7 @@ func Load() (*Config, error) {
 		DBPort:     os.Getenv("DB_PORT"),
 		DBName:     os.Getenv("DB_NAME"),
 		JWTSecret: os.Getenv("JWT_SECRET"),
+		CSRFSecrete: os.Getenv("CSRF_SECRET"),
 	}
 
 	cfg.DSN = fmt.Sprintf(
