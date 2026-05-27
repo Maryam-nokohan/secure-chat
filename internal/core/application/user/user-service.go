@@ -17,9 +17,10 @@ type UserService struct {
 	tokenSvc ports.TokenService
 }
 
-func NewUSerService(repo ports.UserRepository) ports.UserServicesI {
+func NewUSerService(repo ports.UserRepository , tokenSvc ports.TokenService) ports.UserServicesI {
 	return &UserService{
 		repo: repo,
+		tokenSvc: tokenSvc,
 	}
 }
 
