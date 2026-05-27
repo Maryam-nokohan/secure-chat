@@ -105,3 +105,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/chat")
 
 }
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+
+	c.SetCookie(
+		"Authorization",
+		"",
+		-1,
+		"/",
+		"",
+		false,
+		true,
+	)
+
+	c.Redirect(http.StatusSeeOther, "/login")
+}
