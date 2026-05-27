@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"errors"
+
 	"github.com/gofrs/uuid"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/user"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +16,7 @@ type UserRepository struct {
 }
 
 func NewUserRepositoryService(db *gorm.DB) (ports.UserRepository, error) {
-
+	pkg.LogInfo("New User repostiry...")
 	return &UserRepository{
 		db: db,
 	}, nil
@@ -22,7 +24,7 @@ func NewUserRepositoryService(db *gorm.DB) (ports.UserRepository, error) {
 }
 
 func (r *UserRepository) CreateUser(ctx context.Context, user user.User) error {
-
+	pkg.LogRepo("Creating User " + user.Username)
 	result := r.db.WithContext(ctx).Create(&user)
 	if result.Error != nil {
 		return result.Error
@@ -31,39 +33,40 @@ func (r *UserRepository) CreateUser(ctx context.Context, user user.User) error {
 }
 func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	var dbModel user.User
-
+	
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&dbModel)
-
+	
 	if result.Error != nil {
 		return nil, result.Error
 	}
-
+	
 	return &dbModel, nil
 }
 func (r *UserRepository) FindUserByUsername(ctx context.Context, username string) (*user.User, error) {
 	var u user.User
-
+	
 	err := r.db.
-		WithContext(ctx).
-		Where("username = ?", username).
-		First(&u).
-		Error
-
+	WithContext(ctx).
+	Where("username = ?", username).
+	First(&u).
+	Error
+	
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return &u, nil
 }
 func (r *UserRepository) EditUser(ctx context.Context, user user.User) error {
-
+	pkg.LogRepo("Editing User " + user.Username)
+	
 	return r.db.
-		WithContext(ctx).
+	WithContext(ctx).
 		Save(&user).
 		Error
-}
+	}
 func (r *UserRepository) DeleteUser(ctx context.Context, user user.User) error {
-
+	pkg.LogRepo("Deleting user " + user.Username)
 	return r.db.
 		WithContext(ctx).
 		Delete(&user).
