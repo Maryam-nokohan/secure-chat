@@ -25,6 +25,11 @@ func NewUSerService(repo ports.UserRepository , tokenSvc ports.TokenService) por
 }
 
 func (s *UserService) Register(ctx context.Context, name, password string) (*auth.AuthResult, error) {
+
+	if err := pkg.ValidatePassword(password) ; err != nil {
+		return nil ,err
+	}
+
 	username := strings.TrimSpace(name)
 
 	pkg.LogInfo("attempting user registration: " + username)
@@ -37,7 +42,7 @@ func (s *UserService) Register(ctx context.Context, name, password string) (*aut
 	if err == nil && existingUser != nil {
 
 		pkg.LogInfo("registration failed, username already exists: " + username)
-		return nil, errors.New("username already exists")
+		return nil, errors.New("Invalid credentials")
 	}
 
 	hash, err := pkg.HashPassword(password)

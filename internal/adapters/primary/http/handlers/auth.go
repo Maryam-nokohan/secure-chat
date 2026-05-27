@@ -80,7 +80,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		pkg.LogHttpError(err)
 
 		c.HTML(http.StatusBadRequest,
-			"register.html",
+			"login.html",
 			gin.H{
 				"error": err.Error(),
 			},

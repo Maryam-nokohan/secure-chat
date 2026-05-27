@@ -22,12 +22,26 @@
         required
     >
 
-    <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        required
-    >
+  <input
+    type="password"
+    name="password"
+    placeholder="Password"
+    required
+    minlength="8"
+    pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_\-])[A-Za-z\d@$!%*?&.#_\-]{8,}$"
+    title="Password must contain at least 8 characters, including uppercase, lowercase, number, and special character"
+>
+<p>
+Password must contain:
+</p>
+
+<ul>
+    <li>At least 8 characters</li>
+    <li>One uppercase letter</li>
+    <li>One lowercase letter</li>
+    <li>One number</li>
+    <li>One special character</li>
+</ul>
 
     <button type="submit">
         Register
