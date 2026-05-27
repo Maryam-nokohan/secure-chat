@@ -3,8 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"time"
-
 	"github.com/gofrs/uuid"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/user"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
@@ -40,54 +38,34 @@ func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*user.
 		return nil, result.Error
 	}
 
-	return &user.User{
-		ID:       dbModel.ID,
-		Username: dbModel.Username,
-		PassHash: dbModel.PassHash,
-		Bio: dbModel.Bio,
-	}, nil
+	return &dbModel, nil
 }
 func (r *UserRepository) FindUserByUsername(ctx context.Context, username string) (*user.User, error) {
+	var u user.User
 
-	var dbModel user.User
+	err := r.db.
+		WithContext(ctx).
+		Where("username = ?", username).
+		First(&u).
+		Error
 
-	result := r.db.WithContext(ctx).Where("username = ?", username).First(&dbModel)
-
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
-		}
-		return nil, result.Error
+	if err != nil {
+		return nil, err
 	}
 
-	return &user.User{
-		ID:       dbModel.ID,
-		Username: dbModel.Username,
-		PassHash: dbModel.PassHash,
-		Bio: dbModel.Bio,
-	}, nil
+	return &u, nil
 }
 func (r *UserRepository) EditUser(ctx context.Context, user user.User) error {
 
-	if err := r.db.WithContext(ctx).Where("id = ?", user.ID).Error; err != nil {
-		return err
-	}
-	if err := r.db.WithContext(ctx).Save(&user).Error; err != nil {
-		return err
-	}
-	return nil
-
+	return r.db.
+		WithContext(ctx).
+		Save(&user).
+		Error
 }
 func (r *UserRepository) DeleteUser(ctx context.Context, user user.User) error {
 
-	result := r.db.WithContext(ctx).Where("id = ?", user.ID)
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return errors.New("user not found or couldn't be deleted")
-	}
-	return nil
+	return r.db.
+		WithContext(ctx).
+		Delete(&user).
+		Error
 }
