@@ -2,10 +2,11 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/handlers"
+	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers" 
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 )
+
 
 func SetupRoutes(
 	r *gin.Engine,
@@ -32,6 +33,4 @@ func setupProtectedRoutes(r *gin.Engine, jwtSvc ports.TokenService) {
 	protected := r.Group("/")
 	protected.Use(middlewares.AuthMiddleware(jwtSvc))
 	
-	protected.GET("/chat", handlers.ShowChatPage)
-	protected.POST("/logout", handlers.Logout)
 }
