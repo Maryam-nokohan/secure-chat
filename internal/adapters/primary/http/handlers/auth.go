@@ -52,7 +52,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		3600*24,
 		"/",
 		"",
-		false,
+		true,
 		true,
 	)
 
@@ -95,7 +95,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		3600*24,
 		"/",
 		"",
-		false,
+		true,
 		true,
 	)
 
@@ -111,7 +111,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		-1,
 		"/",
 		"",
-		false,
+		true,
 		true,
 	)
 

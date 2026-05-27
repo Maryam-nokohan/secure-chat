@@ -7,4 +7,6 @@ type Config struct {
 	DBPort     string
 	DBName     string
 	DSN        string
+
+	JWTSecret string
 }
