@@ -11,14 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserDB struct {
-	ID           uuid.UUID `gorm:"type:uuid;primary_key"`
-	Username     string    `gorm:"uniqueIndex;not null"`
-	PasswordHash string    `gorm:"not null"`
-	Bio          string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
 type UserRepository struct {
 	db *gorm.DB
 }
@@ -32,23 +24,15 @@ func NewUserRepositoryService(db *gorm.DB) (ports.UserRepository, error) {
 }
 
 func (r *UserRepository) CreateUser(ctx context.Context, user user.User) error {
-	dbModel := UserDB{
-		ID:           user.ID,
-		Username:     user.Username,
-		PasswordHash: user.PassHash,
-		Bio:          user.Bio,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
 
-	result := r.db.WithContext(ctx).Create(&dbModel)
+	result := r.db.WithContext(ctx).Create(&user)
 	if result.Error != nil {
 		return result.Error
 	}
 	return nil
 }
 func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
-	var dbModel UserDB
+	var dbModel user.User
 
 	result := r.db.WithContext(ctx).Where("id = ?", id).First(&dbModel)
 
@@ -59,13 +43,13 @@ func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*user.
 	return &user.User{
 		ID:       dbModel.ID,
 		Username: dbModel.Username,
-		PassHash: dbModel.PasswordHash,
+		PassHash: dbModel.PassHash,
 		Bio: dbModel.Bio,
 	}, nil
 }
 func (r *UserRepository) FindUserByUsername(ctx context.Context, username string) (*user.User, error) {
 
-	var dbModel UserDB
+	var dbModel user.User
 
 	result := r.db.WithContext(ctx).Where("username = ?", username).First(&dbModel)
 
@@ -79,23 +63,16 @@ func (r *UserRepository) FindUserByUsername(ctx context.Context, username string
 	return &user.User{
 		ID:       dbModel.ID,
 		Username: dbModel.Username,
-		PassHash: dbModel.PasswordHash,
+		PassHash: dbModel.PassHash,
 		Bio: dbModel.Bio,
 	}, nil
 }
 func (r *UserRepository) EditUser(ctx context.Context, user user.User) error {
 
-	var dbModel UserDB
 	if err := r.db.WithContext(ctx).Where("id = ?", user.ID).Error; err != nil {
 		return err
 	}
-
-	dbModel.Username = user.Username
-	dbModel.PasswordHash = user.PassHash
-	dbModel.Bio = user.Bio
-	dbModel.UpdatedAt = time.Now()
-
-	if err := r.db.WithContext(ctx).Save(&dbModel).Error; err != nil {
+	if err := r.db.WithContext(ctx).Save(&user).Error; err != nil {
 		return err
 	}
 	return nil
