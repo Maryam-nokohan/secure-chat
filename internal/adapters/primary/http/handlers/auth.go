@@ -1,14 +1,11 @@
 package handler
 
 import (
-	"crypto/x509/pkix"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/dto"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
-	"github.com/maryam-nokohan/secure-chat/internal/core/application"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 	"github.com/maryam-nokohan/secure-chat/pkg"
 )

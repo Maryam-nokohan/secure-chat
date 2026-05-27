@@ -3,8 +3,6 @@ package postgres
 import (
 	"context"
 
-	"vendor/golang.org/x/net/idna"
-
 	"github.com/gofrs/uuid"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/chat"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
@@ -91,13 +89,13 @@ func (r *ChatRepository) DeleteRoom(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Where("id = ?" , id).Delete(&ChatRoomDB{}).Error
 }
 func (r *ChatRepository) AddUserToRoom(ctx context.Context, roomID, userID uuid.UUID) error {
-	resuls := r.db.WithContext(ctx).Where("id = ?" , roomID)
-	if resuls.Error != nil {
-		return  resuls.Error
-	}
+	// resuls := r.db.WithContext(ctx).Where("id = ?" , roomID)
+	// if resuls.Error != nil {
+	// 	return  resuls.Error
+	// }
 
-
+	return  nil
 }
 func (r *ChatRepository) RemoveUserFromRoom(ctx context.Context, roomID, userID uuid.UUID) error {
-
+	return  nil
 }

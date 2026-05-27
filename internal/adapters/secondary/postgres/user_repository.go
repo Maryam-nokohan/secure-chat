@@ -2,8 +2,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
-
 	"github.com/gofrs/uuid"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/user"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
