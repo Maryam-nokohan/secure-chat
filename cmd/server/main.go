@@ -10,6 +10,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
+	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
@@ -51,6 +52,11 @@ func main() {
 		userSvc,
 	)
 
+	// websocket
+	hub := websocket.NewHub()
+	go hub.Run()
+	wsHandler := websocket.NewHandler(hub)
+
 	// run engine
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
@@ -64,7 +70,8 @@ func main() {
 	r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
 
 	r.LoadHTMLGlob("templates/*")
-	routes.SetupRoutes(r, authHandler, jwtSvc, cfg.CSRFSecrete)
+	routes.SetupRoutes(r, authHandler, wsHandler, jwtSvc)
 
 	log.Fatal(r.Run(":8080"))
+
 }

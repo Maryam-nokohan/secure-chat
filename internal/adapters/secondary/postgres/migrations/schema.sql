@@ -30,3 +30,20 @@ CREATE TRIGGER update_users_updated_at
 BEFORE UPDATE ON users
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    sender_id UUID NOT NULL REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    receiver_id UUID REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    room_id UUID,
+
+    text TEXT NOT NULL,
+
+    created_at TIMESTAMP WITH TIME ZONE
+    DEFAULT CURRENT_TIMESTAMP
+);

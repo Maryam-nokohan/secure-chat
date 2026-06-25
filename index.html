@@ -1,0 +1,43 @@
+<html>
+<head>
+    <title>Real-Time Chatroom</title>
+    <style>
+        #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+        #input { width: 300px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Chatroom Fun! 😄</h1>
+    <div id="messages"></div>
+    <input id="input" type="text" placeholder="Say something...">
+    <button onclick="sendMessage()">Send</button>
+    <script>
+        const nickname = prompt("Enter your nickname:");
+        const ws = new WebSocket(`ws://localhost:8080/ws?nickname=${encodeURIComponent(nickname)}`);
+        const messages = document.getElementById("messages");
+        const input = document.getElementById("input");
+
+        ws.onmessage = (event) => {
+            const msg = document.createElement("p");
+            msg.textContent = event.data;
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
+        };
+
+        ws.onclose = () => {
+            messages.appendChild(document.createElement("p")).textContent = "Disconnected. 😞";
+        };
+
+        function sendMessage() {
+            if (input.value) {
+                ws.send(input.value);
+                input.value = "";
+            }
+        }
+
+        input.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+    </script>
+</body>
+</html>

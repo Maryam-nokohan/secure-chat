@@ -11,7 +11,8 @@ dontpush/
 
 # Dependency directories
 vendor/
-
+project_dump.txt
+test.go
 # --- Environment and Secret Files ---
 # NEVER commit your secrets or database connection strings
 .env

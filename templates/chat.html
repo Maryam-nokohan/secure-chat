@@ -18,4 +18,17 @@ Welcome {{.username}}
 </form>
 
 </body>
+<script>
+const ws = new WebSocket(
+    "ws://localhost:8080/ws"
+)
+
+ws.onmessage = (event) => {
+    console.log(event.data)
+}
+
+ws.onopen = () => {
+    console.log("connected")
+}
+</script>
 </html>
