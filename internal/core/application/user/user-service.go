@@ -25,7 +25,9 @@ func NewUSerService(repo ports.UserRepository , tokenSvc ports.TokenService) por
 }
 
 func (s *UserService) Register(ctx context.Context, name, password string , publickey string) (*auth.AuthResult, error) {
-
+	if err := pkg.ValidateRSAPublicKey(publickey); err != nil {
+		return nil, err
+	}
 	if err := pkg.ValidatePassword(password) ; err != nil {
 		return nil ,err
 	}
@@ -100,5 +102,11 @@ func (s *UserService) Login(ctx context.Context, username, password string) (*au
         pkg.LogError(err)
         return nil, err
     }
-    return &auth.AuthResult{Token: token, UserID: u.ID.String(), Username: u.Username}, nil
+    
+    return &auth.AuthResult{
+        Token:     token,
+        UserID:    u.ID.String(),
+        Username:  u.Username,
+        PublicKey: u.PublicKey,
+    }, nil
 }

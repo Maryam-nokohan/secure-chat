@@ -9,7 +9,8 @@ type Claims struct {
 }
 
 type AuthResult struct {
-	Token    string
-	UserID   string
-	Username string
+	Token     string
+	UserID    string
+	Username  string
+	PublicKey string
 }
