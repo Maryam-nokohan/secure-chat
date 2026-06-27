@@ -3,6 +3,32 @@
 <head>
     <title>Register</title>
 </head>
+<input type="hidden" name="public_key" id="public_key">
+<p id="key-status" style="color:gray;">Generating your encryption keys…</p>
+
+<script>
+async function generateAndStoreKeyPair() {
+    const keyPair = await window.crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256" },
+        true, ["encrypt", "decrypt"]
+    );
+
+    const pubRaw  = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+    const pubB64  = btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
+    const pubPEM  = `-----BEGIN PUBLIC KEY-----\n${pubB64.match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
+
+    const privRaw = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const privB64 = btoa(String.fromCharCode(...new Uint8Array(privRaw)));
+    const privPEM = `-----BEGIN PRIVATE KEY-----\n${privB64.match(/.{1,64}/g).join('\n')}\n-----END PRIVATE KEY-----`;
+    localStorage.setItem("privateKey", privPEM);
+
+    document.getElementById("public_key").value = pubPEM;
+    document.getElementById("key-status").textContent = "✓ Encryption keys ready";
+}
+generateAndStoreKeyPair();
+</script>
 <body>
 
 <h1>Register</h1>

@@ -1,34 +1,241 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat - Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body, html {
+            height: 100%;
+            overflow: hidden;
+            background-color: #f8f9fa;
+        }
+        .chat-container {
+            height: calc(100vh - 60px);
+        }
+        .sidebar {
+            background-color: #ffffff;
+            border-right: 1px solid #dee2e6;
+        }
+        .chat-messages {
+            height: calc(100% - 70px);
+            overflow-y: auto;
+            background-color: #ffffff;
+            background-image: radial-gradient(#e9ecef 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+        .room-item.active {
+            background-color: #e7f1ff;
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .message-bubble {
+            max-width: 75%;
+            border-radius: 15px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+        }
+        .message-system {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-align: center;
+            margin: 8px 0;
+        }
+    </style>
 </head>
 <body>
 
-<h1>Secure Chat</h1>
+    <nav class="navbar navbar-dark bg-dark px-3" style="height: 60px;">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <i class="bi bi-shield-lock-fill text-primary me-2"></i>
+            <span>Secure Chat Architecture</span>
+        </a>
+        <div class="d-flex align-items-center text-white">
+            <span class="me-3"><i class="bi bi-person-circle me-1"></i> <strong id="current-user">{{.username}}</strong></span>
+            <a href="/login" class="btn btn-outline-danger btn-sm">Logout</a>
+        </div>
+    </nav>
 
-<p>
-Welcome {{.username}}
-</p>
+    <div class="container-fluid chat-container">
+        <div class="row h-100">
+            
+            <div class="col-md-3 col-lg-2 sidebar py-3 d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="text-uppercase text-muted fw-bold mb-3 small tracking-wider">Active Rooms</h6>
+                    <div class="list-group list-group-flush mb-4" id="rooms-list">
+                        <button class="list-group-item list-group-item-action room-item active" onclick="switchRoom('General')">
+                            <i class="bi bi-hash me-2"></i>General
+                        </button>
+                        <button class="list-group-item list-group-item-action room-item" onclick="switchRoom('Gaming')">
+                            <i class="bi bi-hash me-2"></i>Gaming
+                        </button>
+                        <button class="list-group-item list-group-item-action room-item" onclick="switchRoom('Development')">
+                            <i class="bi bi-hash me-2"></i>Development
+                        </button>
+                    </div>
+                    
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="new-room-input" class="form-control" placeholder="Create/Join room...">
+                        <button class="btn btn-primary" type="button" onclick="joinCustomRoom()">Join</button>
+                    </div>
+                </div>
+                
+                <div class="card bg-light border-0">
+                    <div class="card-body p-2 text-center small text-muted">
+                        <i class="bi bi-hdd-network text-success me-1"></i> Connected to Host
+                    </div>
+                </div>
+            </div>
 
-<form action="/logout" method="POST">
-    <button type="submit">
-        Logout
-    </button>
-</form>
+            <div class="col-md-9 col-lg-10 p-0 h-100 d-flex flex-column">
+                
+                <div class="bg-white px-4 py-2 border-bottom d-flex align-items-center justify-content-between shadow-sm">
+                    <div>
+                        <h5 class="mb-0 fw-bold" id="active-room-title"># General</h5>
+                        <small class="text-muted">Real-time event synchronization activated</small>
+                    </div>
+                </div>
 
+                <div class="chat-messages p-4 d-flex flex-column" id="chat-box">
+                    <div class="message-system">Welcome to the secure-chat infrastructure pool. Type a message below.</div>
+                </div>
+
+                <div class="p-3 bg-light border-top">
+                    <form id="message-form" onsubmit="sendMessage(event)">
+                        <div class="input-group">
+                            <input type="text" id="message-input" class="form-control form-control-lg" placeholder="Type your message securely here..." autocomplete="off" required>
+                            <button class="btn btn-primary px-4" type="submit">
+                                <i class="bi bi-send-fill"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let currentRoom = "General";
+        const chatBox = document.getElementById("chat-box");
+        const messageInput = document.getElementById("message-input");
+        const currentUser = document.getElementById("current-user").innerText;
+
+        function connectWebSocket() {
+            // Establish full-duplex socket channel connection matching your routes configuration
+            const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+            ws = new WebSocket(`${wsProtocol}${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                console.log("WebSocket engine linked successfully.");
+                // Sync the client with the default startup room pool
+                ws.send(`/join ${currentRoom}`);
+            };
+
+            ws.onmessage = (event) => {
+                appendMessage(event.data);
+            };
+
+            ws.onclose = () => {
+                console.warn("Socket channel closed. Reconnection loop scheduling...");
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error("Socket pipeline exception observed: ", error);
+            };
+        }
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            // Push payload upstream via client write pump
+            ws.send(text);
+            messageInput.value = "";
+        }
+
+        function appendMessage(text) {
+            const isSystemMessage = text.includes("joined the") || text.includes("left the");
+            const msgRow = document.createElement("div");
+            msgRow.classList.add("d-flex", "w-100");
+
+            if (isSystemMessage) {
+                msgRow.innerHTML = `<div class="message-system mx-auto">${text}</div>`;
+            } else {
+                // Parsing basic formatting out of your current hub logic payload text: "username [Room]: message"
+                const containsSelf = text.startsWith(currentUser);
+                
+                if (containsSelf) {
+                    msgRow.classList.add("justify-content-end");
+                    msgRow.innerHTML = `
+                        <div class="message-bubble bg-primary text-white shadow-sm">
+                            <div class="small fw-light text-white-50">You</div>
+                            <div>${escapeHTML(text.substring(text.indexOf("]:") + 2 || 0))}</div>
+                        </div>`;
+                } else {
+                    msgRow.classList.add("justify-content-start");
+                    msgRow.innerHTML = `
+                        <div class="message-bubble bg-light border text-dark shadow-sm">
+                            <div class="small fw-bold text-primary">${escapeHTML(text.split(" ")[0] || "User")}</div>
+                            <div>${escapeHTML(text.substring(text.indexOf("]:") + 2 || 0))}</div>
+                        </div>`;
+                }
+            }
+
+            chatBox.appendChild(msgRow);
+            chatBox.scrollTop = chatBox.scrollHeight; // Keep view scrolled down
+        }
+
+        function switchRoom(roomName) {
+            if (roomName === currentRoom) return;
+            currentRoom = roomName;
+            
+            document.getElementById("active-room-title").innerText = `# ${roomName}`;
+            
+            // Highlight matching sidebar list elements
+            document.querySelectorAll(".room-item").forEach(item => {
+                item.classList.remove("active");
+                if (item.innerText.trim() === roomName) item.classList.add("active");
+            });
+
+            // Clear box frame and transmit room switch command sequence back upstream
+            chatBox.innerHTML = `<div class="message-system">Switched entry target onto channel pool: #${roomName}</div>`;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(`/join ${roomName}`);
+            }
+        }
+
+        function joinCustomRoom() {
+            const input = document.getElementById("new-room-input");
+            const roomName = input.value.trim();
+            if (!roomName) return;
+
+            // Create new interactive navigation tab dynamically element
+            const roomsList = document.getElementById("rooms-list");
+            const newBtn = document.createElement("button");
+            newBtn.className = "list-group-item list-group-item-action room-item";
+            newBtn.innerHTML = `<i class="bi bi-hash me-2"></i>${roomName}`;
+            newBtn.onclick = () => switchRoom(roomName);
+            
+            roomsList.appendChild(newBtn);
+            input.value = "";
+            switchRoom(roomName);
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Fire up execution thread on window mount
+        window.onload = connectWebSocket;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-<script>
-const ws = new WebSocket(
-    "ws://localhost:8080/ws"
-)
-
-ws.onmessage = (event) => {
-    console.log(event.data)
-}
-
-ws.onopen = () => {
-    console.log("connected")
-}
-</script>
 </html>
