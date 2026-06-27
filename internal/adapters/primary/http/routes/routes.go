@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
@@ -30,6 +32,9 @@ func setupPublicRoutes(
 	authHandler *handlers.AuthHandler,
 ) {
 
+	r.GET("/", func(c *gin.Context) {
+        c.Redirect(http.StatusMovedPermanently, "/login")
+    })
 	r.GET("/login", authHandler.Login)
 	r.POST("/login", authHandler.Login)
 
@@ -64,6 +69,6 @@ func setupProtectedRoutes(
 
 	protected.GET(
 		"/ws",
-		wsHandler.Handle,
+		wsHandler.HandleWebSocket,
 	)
 }

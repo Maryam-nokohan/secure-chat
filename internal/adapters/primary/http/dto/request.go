@@ -8,6 +8,7 @@ type SendMessageWSRequest struct {
 type RegisterRequest struct{
 	Username string `form:"username"`
 	Password string `form:"password"`
+	PublicKey string `form:"public_key"`
 }
 type LoginRequest struct{
 	Username string `form:"username"`

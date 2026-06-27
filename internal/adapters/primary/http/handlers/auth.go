@@ -20,32 +20,30 @@ func NewAuthHandler(svc ports.UserServicesI) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
+	if c.Request.Method == http.MethodGet {
+		c.HTML(http.StatusOK, "register.html", gin.H{"csrfToken": csrf.GetToken(c)})
+		return
+	}
+	
 	var req dto.RegisterRequest
 
 	if err := c.ShouldBind(&req); err != nil {
 		c.HTML(http.StatusBadRequest,
 			"register.html",
 			gin.H{
-				"error": "invalid form",
+				"error":     "invalid form",
 				"csrfToken": csrf.GetToken(c),
 			},
 		)
 		return
 	}
 
-	res, err := h.svc.Register(c.Request.Context(), req.Username, req.Password)
-
+	res, err := h.svc.Register(c.Request.Context(), req.Username, req.Password, req.PublicKey)
 	if err != nil {
 		pkg.LogHttpError(err)
-
-		c.HTML(http.StatusBadRequest,
-			"register.html",
-			gin.H{
-				"error": err.Error(),
-				"csrfToken": csrf.GetToken(c),
-			},
-		)
-
+		c.HTML(http.StatusBadRequest, "register.html", gin.H{
+			"error": err.Error(), "csrfToken": csrf.GetToken(c),
+		})
 		return
 	}
 
@@ -60,7 +58,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	)
 
 	c.Redirect(http.StatusSeeOther, "/login")
-
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -71,7 +68,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			http.StatusBadRequest,
 			"login.html",
 			gin.H{
-				"error": err.Error(),
+				"error":     err.Error(),
 				"csrfToken": csrf.GetToken(c),
 			},
 		)
@@ -79,14 +76,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	res, err := h.svc.Login(c.Request.Context(), req.Username, req.Password)
-
 	if err != nil {
 		pkg.LogHttpError(err)
 
 		c.HTML(http.StatusBadRequest,
 			"login.html",
 			gin.H{
-				"error": err.Error(),
+				"error":     err.Error(),
 				"csrfToken": csrf.GetToken(c),
 			},
 		)
@@ -105,11 +101,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	)
 
 	c.Redirect(http.StatusSeeOther, "/chat")
-
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-
 	c.SetCookie(
 		"Authorization",
 		"",
