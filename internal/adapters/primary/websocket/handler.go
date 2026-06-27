@@ -1,8 +1,10 @@
 package websocket
 
 import (
+	"log"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
@@ -24,23 +26,30 @@ var Upgrader = websocket.Upgrader{
 	},
 }
 
-func (h *Handler) ServeWs(w http.ResponseWriter, r *http.Request, username string) {
-	conn, err := Upgrader.Upgrade(w, r, nil)
+func (h *Handler) HandleWebSocket(c *gin.Context) {
+	userID, existsID := c.Get("userID")
+	username, existsName := c.Get("username")
+
+	if !existsID || !existsName {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	conn, err := Upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		http.Error(w, "Failed to upgrade to WebSocket", http.StatusInternalServerError)
+		log.Printf("failed to upgrade: %v", err)
 		return
 	}
 
 	client := &Client{
-		Id:       username,
-		Username: username,
-		Conn:     conn,
-		Send:     make(chan []byte),
 		Hub:      h.Hub,
+		Conn:     conn,
+		Send:     make(chan []byte, 256),
+		ID:       userID.(string),
+		Username: username.(string),
 	}
 
 	h.Hub.Register <- client
-
-	go client.writePump()
-	go client.readPump()
+	go client.WritePump()
+	go client.ReadPump()
 }
