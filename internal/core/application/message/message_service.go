@@ -1,38 +1,52 @@
 package message
 
 import (
-	"context"
+    "context"
+    "time"
 
-	"github.com/gofrs/uuid"
-
-	"github.com/maryam-nokohan/secure-chat/internal/core/domain/message"
-	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+    "github.com/gofrs/uuid"
+    "github.com/maryam-nokohan/secure-chat/internal/core/domain/message"
+    "github.com/maryam-nokohan/secure-chat/internal/core/ports"
 )
 
 type MessageService struct {
-	messageRepo ports.MessageRepository
+    msgRepo ports.MessageRepository
 }
 
-func NewMessageService(msgRepo ports.MessageRepository) *MessageService {
-
-	return &MessageService{
-		messageRepo: msgRepo,
-	}
+func NewMessageService(repo ports.MessageRepository) ports.MessageServiceI {
+    return &MessageService{
+        msgRepo: repo,
+    }
 }
 
-func (s *MessageService) SavePrivateMessage(
-	ctx context.Context,
-	senderID uuid.UUID,
-	receiverID uuid.UUID,
-	content string,
-) error {
+func (s *MessageService) ProcessMessage(ctx context.Context, roomID, senderID uuid.UUID, encryptedContent string) (*message.Message, error) {
+    msgID, err := uuid.NewV4()
+    if err != nil {
+        return nil, err
+    }
 
-	msg := &message.Message{
-		ID:         uuid.Must(uuid.NewV4()),
-		SenderID:   senderID,
-		ReceiverID: &receiverID,
-		Text:       content,
-	}
+    msg := &message.Message{
+        ID:               msgID,
+        RoomID:           roomID,
+        SenderID:         senderID,
+        EncryptedContent: encryptedContent,
+        CreatedAt:        time.Now(),
+    }
 
-	return s.messageRepo.SaveMessage(ctx, msg)
+    if err := s.msgRepo.SaveMessage(ctx, msg); err != nil {
+        return nil, err
+    }
+
+    return msg, nil
+}
+
+func (s *MessageService) GetHistory(ctx context.Context, roomID uuid.UUID) ([]*message.Message, error) {
+    return s.msgRepo.GetRoomHistory(ctx, roomID, 100)
+}
+func (s *MessageService) DeleteMessage(ctx context.Context, msgID uuid.UUID) error {
+	return s.msgRepo.DeleteMessage(ctx, msgID)
+}
+
+func (s *MessageService) EditMessage(ctx context.Context, msgID uuid.UUID, rawMsg string) error {
+	return s.msgRepo.EditMessage(ctx, msgID, newEncryptedContent)
 }
