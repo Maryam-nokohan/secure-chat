@@ -3,7 +3,7 @@ package message
 import (
     "context"
     "time"
-    "github.com/maryam-nokohan/secure-chat/internal/pkg"
+    "github.com/maryam-nokohan/secure-chat/pkg"
     "github.com/gofrs/uuid"
     "github.com/maryam-nokohan/secure-chat/internal/core/domain/message"
     "github.com/maryam-nokohan/secure-chat/internal/core/ports"
