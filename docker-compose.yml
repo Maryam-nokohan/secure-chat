@@ -1,21 +1,47 @@
 version: '3.9'
 
 services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: secure-chat-redis
+    restart: always
+    ports:
+      - "6379:6379"
   postgres:
     image: postgres:16
     container_name: secure-chat-db
     restart: always
-
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: secure_chat_db
-
     ports:
       - "5432:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d secure_chat_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: secure-chat-app
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:                    
+        condition: service_started
 
 volumes:
   postgres_data:
