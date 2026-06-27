@@ -53,3 +53,10 @@ func (r *MessageRepo) EditMessage(ctx context.Context, msgID uuid.UUID, newMsgEn
 		Where("id = ?", msgID).
 		Update("encrypted_content", newMsgEncrypted).Error
 }
+func (r * MessageRepo) GetMessageByID(ctx context.Context, msgID uuid.UUID) (*message.Message, error) {
+	var msg message.Message
+	if err := r.db.WithContext(ctx).First(&msg, "id = ?", msgID).Error; err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
