@@ -1,21 +1,16 @@
 package chat
 
 import (
-	"github.com/gofrs/uuid"
 	"time"
+
+	"github.com/gofrs/uuid"
+	"github.com/maryam-nokohan/secure-chat/internal/core/domain/user"
 )
 
 type Room struct {
 	ID        uuid.UUID   `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Name      string      `gorm:"size:100;not null"`
-	CreatorID uuid.UUID   `gorm:"type:uuid;not null"`
-	CreatedAt time.Time   `gorm:"default:CURRENT_TIMESTAMP"`
-	UpdatedAt time.Time   `gorm:"default:CURRENT_TIMESTAMP"`
-	Users     []uuid.UUID `gorm:"-:all"`
-}
-
-type RoomUser struct {
-	RoomID   uuid.UUID `gorm:"type:uuid;primary_key"`
-	UserID   uuid.UUID `gorm:"type:uuid;primary_key"`
-	JoinedAt time.Time `gorm:"default:CURRENT_TIMESTAMP"`
+	Name      string       
+	CreatorID uuid.UUID    
+	CreatedAt time.Time   
+	Users     []user.User `gorm:"many2many:user_rooms;"`
 }
