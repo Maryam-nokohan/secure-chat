@@ -8,6 +8,8 @@ type Config struct {
 	DBName     string
 	DSN        string
 
+	RedisAddr   string
+
 	JWTSecret   string
 	CSRFSecrete string
 }

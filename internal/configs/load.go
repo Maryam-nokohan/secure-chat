@@ -20,6 +20,7 @@ func Load() (*Config, error) {
 		DBHost:     os.Getenv("DB_HOST"),
 		DBPort:     os.Getenv("DB_PORT"),
 		DBName:     os.Getenv("DB_NAME"),
+		RedisAddr: os.Getenv("REDIS_ADDR"),
 		JWTSecret: os.Getenv("JWT_SECRET"),
 		CSRFSecrete: os.Getenv("CSRF_SECRET"),
 	}
