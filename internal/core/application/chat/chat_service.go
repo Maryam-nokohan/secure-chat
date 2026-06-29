@@ -11,6 +11,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/chat"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 type ChatService struct {
@@ -24,6 +25,7 @@ func NewChatService(
 	msgRepo ports.MessageRepository,
 	redis *redis.Client,
 ) ports.ChatServiceI {
+	pkg.LogInfo("Init ChatService...")
 	return &ChatService{chatRepo: chatRepo, msgRepo: msgRepo, redis: redis}
 }
 

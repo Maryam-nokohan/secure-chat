@@ -18,6 +18,7 @@ type MessageService struct {
 }
 
 func NewMessageService(repo ports.MessageRepository, userRepo ports.UserRepository, crypto *pkg.HybridCryptoService) ports.MessageServiceI {
+    pkg.LogInfo("Init MessageService...")
     return &MessageService{
         msgRepo: repo,
         userRepo: userRepo,

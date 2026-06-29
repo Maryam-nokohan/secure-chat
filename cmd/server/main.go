@@ -64,6 +64,7 @@ func main() {
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc)
 
 	gin.SetMode(gin.ReleaseMode)
+	pkg.LogInfo("Starting Gin Server...")
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
@@ -76,5 +77,6 @@ func main() {
 	r.LoadHTMLGlob("templates/*")
 	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, jwtSvc)
 
+	pkg.LogInfo("Gin Server is running on :8080")
 	log.Fatal(r.Run(":8080"))
 }

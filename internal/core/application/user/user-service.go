@@ -18,6 +18,7 @@ type UserService struct {
 }
 
 func NewUSerService(repo ports.UserRepository , tokenSvc ports.TokenService) ports.UserServicesI {
+	pkg.LogInfo("Init UserService...")
 	return &UserService{
 		repo: repo,
 		tokenSvc: tokenSvc,

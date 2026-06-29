@@ -1,6 +1,10 @@
 package websocket
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/maryam-nokohan/secure-chat/pkg"
+)
 
 type Hub struct {
 	mu         sync.RWMutex
@@ -12,6 +16,7 @@ type Hub struct {
 }
 
 func NewHub() *Hub {
+
 	return &Hub{
 		Clients:    make(map[string]*Client),
 		Rooms:      make(map[string]map[string]*Client),
@@ -22,6 +27,7 @@ func NewHub() *Hub {
 }
 
 func (h *Hub) Run() {
+	pkg.LogInfo("WebSocket hub is running...")
 	for {
 		select {
 		case client := <-h.Register:

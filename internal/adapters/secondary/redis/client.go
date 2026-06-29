@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 
+	"github.com/maryam-nokohan/secure-chat/pkg"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -11,6 +12,7 @@ type Client struct {
 }
 
 func NewRedis(addr string)*Client{
+	pkg.LogInfo("Initializing Redis Client...")
 	rdb := goredis.NewClient(&goredis.Options{
 		Addr: addr,
 	})

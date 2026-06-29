@@ -7,6 +7,7 @@ import (
 
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/message"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 
 	"gorm.io/gorm"
 )
@@ -18,6 +19,7 @@ type MessageRepo struct {
 func NewMessageRepository(
 	db *gorm.DB,
 ) ports.MessageRepository {
+	pkg.LogInfo("Initializing MessageRepository...")
 	return &MessageRepo{
 		db: db,
 	}

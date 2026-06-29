@@ -7,6 +7,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/chat"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/user"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 	"gorm.io/gorm"
 )
 
@@ -15,6 +16,7 @@ type ChatRepository struct {
 }
 
 func NewChatRepository(db *gorm.DB) ports.ChatRepositoryI {
+	pkg.LogInfo("Initializing ChatRepository...")
 	return &ChatRepository{
 		db: db,
 	}

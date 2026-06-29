@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/auth"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 type JWTService struct {
@@ -14,6 +15,7 @@ type JWTService struct {
 }
 
 func NewJWTService(secret string) ports.TokenService {
+	pkg.LogInfo("Initializing JWTService...")
 	return &JWTService{
 		secret: secret,
 	}

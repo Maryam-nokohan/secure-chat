@@ -48,7 +48,7 @@ async function generateAndStoreKeyPair() {
         localStorage.setItem("privateKey", privPEM);
 
         document.getElementById("public_key").value = pubPEM;
-        document.getElementById("key-status").textContent = "✓ Encryption keys ready";
+        document.getElementById("key-status").textContent = "✓";
         document.getElementById("key-status").style.color = "green";
         document.getElementById("register-btn").disabled = false;
     } catch (e) {

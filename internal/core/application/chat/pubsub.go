@@ -7,6 +7,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/message"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 type PubSubService struct {
@@ -27,6 +28,7 @@ func NewPubSubService(
 func (p *PubSubService) Start(
 	ctx context.Context,
 ) {
+	pkg.LogInfo("Starting Pub sub ...")
 	sub := p.redis.Subscribe(
 		ctx,
 		"chat_messages",

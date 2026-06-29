@@ -14,7 +14,7 @@ type UserRepository struct {
 }
 
 func NewUserRepositoryService(db *gorm.DB) (ports.UserRepository, error) {
-	pkg.LogInfo("New User repostiry...")
+	pkg.LogInfo("Initializing UserRepository...")
 	return &UserRepository{
 		db: db,
 	}, nil

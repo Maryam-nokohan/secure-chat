@@ -8,6 +8,7 @@ import (
 )
 
 func RunMigrations(db *gorm.DB) error {
+	pkg.LogInfo("running database migrations...")
 
 	sqlBytes, err := os.ReadFile(
 		"internal/adapters/secondary/postgres/migrations/schema.sql",
