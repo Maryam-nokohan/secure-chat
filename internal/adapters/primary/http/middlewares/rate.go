@@ -23,7 +23,6 @@ func RateLimiter() gin.HandlerFunc {
 
     mu.Lock()
     if _, exists := clients[ip]; !exists {
-      // Allow 10 requests per second with a burst of 20
       clients[ip] = &client{limiter: rate.NewLimiter(10, 20)}
     }
     cl := clients[ip]

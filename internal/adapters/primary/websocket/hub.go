@@ -41,7 +41,7 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 		case payload := <-h.Broadcast:
-			h.mu.RLock()
+			h.mu.Lock()
 			for id, client := range h.Clients {
 				select {
 				case client.Send <- payload:
@@ -50,7 +50,7 @@ func (h *Hub) Run() {
 					delete(h.Clients, id)
 				}
 			}
-			h.mu.RUnlock()
+			h.mu.Unlock()
 		}
 	}
 }
@@ -76,7 +76,6 @@ func (h *Hub) BroadcastToRoom(roomID string, payload []byte) {
 			select {
 			case client.Send <- payload:
 			default:
-				close(client.Send)
 			}
 		}
 	}

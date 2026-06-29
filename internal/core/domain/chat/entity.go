@@ -12,5 +12,6 @@ type Room struct {
 	Name      string       
 	CreatorID uuid.UUID    
 	CreatedAt time.Time   
-	Users     []user.User `gorm:"many2many:user_rooms;"`
+	InviteCode string      `gorm:"uniqueIndex;size:32;not null"`
+	Users     []user.User `gorm:"many2many:room_users;"`
 }

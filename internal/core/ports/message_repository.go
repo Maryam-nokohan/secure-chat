@@ -8,9 +8,9 @@ import (
 )
 
 type MessageRepository interface {
-    SaveMessage(ctx context.Context, msg *message.Message) error
+	SaveMessage(ctx context.Context, msg *message.Message) error
 	GetMessageByID(ctx context.Context, msgID uuid.UUID) (*message.Message, error)
 	GetRoomHistory(ctx context.Context, roomID uuid.UUID, limit int) ([]*message.Message, error)
-	DeleteMessage(ctx context.Context , msgID uuid.UUID) error
-	EditMessage(ctx context.Context , msgID uuid.UUID , newMsgEncrypted string) error	
+	DeleteMessage(ctx context.Context, msgID uuid.UUID) error
+	EditMessage(ctx context.Context, msgID uuid.UUID, ciphertext, aesKey, iv string) error
 }

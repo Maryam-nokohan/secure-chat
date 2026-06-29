@@ -5,10 +5,12 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 
 func Load() (*Config, error) {
+	pkg.LogInfo("Loading configuration...")
 	err := godotenv.Load()
 	if err != nil {
 		return nil, err

@@ -4,14 +4,10 @@ import "github.com/gin-gonic/gin"
 
 func SecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Protect against clickjacking
 		c.Header("X-Frame-Options", "DENY")
-		// Prevent MIME-type sniffing
 		c.Header("X-Content-Type-Options", "nosniff")
-		// Control referrer information sent
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		
-		// UPDATED: Content Security Policy supporting Bootstrap 5 CDNs
 		c.Header("Content-Security-Policy", 
 			"default-src 'self'; "+
 			"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "+ // Allows Bootstrap CSS

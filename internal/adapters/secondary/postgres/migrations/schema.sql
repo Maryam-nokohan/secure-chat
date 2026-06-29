@@ -1,3 +1,63 @@
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='rooms' AND column_name='invite_code'
+    ) THEN
+        ALTER TABLE rooms ADD COLUMN invite_code VARCHAR(32) UNIQUE NOT NULL DEFAULT '';
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='public_key'
+    ) THEN
+        ALTER TABLE users ADD COLUMN public_key TEXT NOT NULL DEFAULT '';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='text'
+    ) THEN
+        ALTER TABLE messages RENAME COLUMN text TO encrypted_content;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='encrypted_content'
+    ) THEN
+        ALTER TABLE messages ADD COLUMN encrypted_content TEXT NOT NULL DEFAULT '';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='encrypted_aes_key'
+    ) THEN
+        ALTER TABLE messages ADD COLUMN encrypted_aes_key TEXT NOT NULL DEFAULT '';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='iv'
+    ) THEN
+        ALTER TABLE messages ADD COLUMN iv TEXT NOT NULL DEFAULT '';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='receiver_id'
+    ) THEN
+        ALTER TABLE messages RENAME COLUMN receiver_id TO recipient_id;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='recipient_id'
+    ) THEN
+        ALTER TABLE messages ADD COLUMN recipient_id UUID REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+END $$;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS users (

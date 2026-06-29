@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/gin-contrib/sessions"
@@ -11,67 +12,69 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
+	jwtSvcPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
+	redisPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
 	"github.com/maryam-nokohan/secure-chat/internal/configs"
-	"github.com/maryam-nokohan/secure-chat/internal/core/application/user"
+	chatApp "github.com/maryam-nokohan/secure-chat/internal/core/application/chat"
+	"github.com/maryam-nokohan/secure-chat/internal/core/application/message"
+	userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
 	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 func main() {
-	// init
 	pkg.Init()
+	pkg.LogInfo("Starting server...")
+
 	cfg, err := configs.Load()
 	if err != nil {
 		pkg.LogFattal(err.Error())
 	}
+
 	db, err := postgres.NewDB(cfg)
 	if err != nil {
 		pkg.LogFattal(err.Error())
 	}
-	err = migrations.RunMigrations(db)
-	if err != nil {
+	if err = migrations.RunMigrations(db); err != nil {
 		pkg.LogFattal(err.Error())
 	}
+
+	chatRepo := postgres.NewChatRepository(db)
+	msgRepo := postgres.NewMessageRepository(db)
 	userRepo, err := postgres.NewUserRepositoryService(db)
-
 	if err != nil {
 		pkg.LogFattal(err.Error())
 	}
-	jwtSvc := auth.NewJWTService(
-		cfg.JWTSecret,
-	)
 
-	userSvc := user.NewUSerService(
-		userRepo,
-		jwtSvc,
-	)
+	rdb := redisPkg.NewRedis(cfg.RedisAddr)
+	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
+	userSvc := userApp.NewUSerService(userRepo, jwtSvc)
+	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, rdb)
+	msgSvc := message.NewMessageService(msgRepo , userRepo , &pkg.HybridCryptoService{})
 
-	authHandler := handlers.NewAuthHandler(
-		userSvc,
-	)
-
-	// websocket
 	hub := websocket.NewHub()
 	go hub.Run()
-	wsHandler := websocket.NewHandler(hub)
 
-	// run engine
+	pubSub := chatApp.NewPubSubService(rdb, hub)
+	pubSub.Start(context.Background())
+
+	authHandler := handlers.NewAuthHandler(userSvc)
+	wsHandler := websocket.NewHandler(hub)
+	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc)
+
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
 	store := cookie.NewStore([]byte(cfg.CSRFSecrete))
 	r.Use(sessions.Sessions("csrf_session", store))
-
-	// middleware
 	r.Use(middlewares.SecurityHeaders())
 	r.Use(middlewares.RateLimiter())
 	r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
 
 	r.LoadHTMLGlob("templates/*")
-	routes.SetupRoutes(r, authHandler, wsHandler, jwtSvc)
+	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, jwtSvc)
 
 	log.Fatal(r.Run(":8080"))
-
 }

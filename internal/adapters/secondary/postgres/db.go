@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/maryam-nokohan/secure-chat/internal/configs"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func NewDB(cfg *configs.Config) (*gorm.DB, error) {
-
+	pkg.LogInfo("Connecting to database...")
 	defaultDSN := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=postgres port=%s sslmode=disable",
 		cfg.DBHost,
@@ -22,7 +23,6 @@ func NewDB(cfg *configs.Config) (*gorm.DB, error) {
 		postgres.Open(defaultDSN),
 		&gorm.Config{},
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to connect postgres database: %w",
@@ -44,7 +44,6 @@ func NewDB(cfg *configs.Config) (*gorm.DB, error) {
 		postgres.Open(cfg.DSN),
 		&gorm.Config{},
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to connect app database: %w",

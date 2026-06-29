@@ -13,9 +13,7 @@ type Handler struct {
 }
 
 func NewHandler(hub *Hub) *Handler {
-	return &Handler{
-		Hub: hub,
-	}
+	return &Handler{Hub: hub}
 }
 
 var Upgrader = websocket.Upgrader{

@@ -47,11 +47,15 @@ func (r *MessageRepo) DeleteMessage(ctx context.Context, msgID uuid.UUID) error 
 		Delete(&message.Message{}, "id = ?", msgID).Error
 }
 
-func (r *MessageRepo) EditMessage(ctx context.Context, msgID uuid.UUID, newMsgEncrypted string) error {
-	return r.db.WithContext(ctx).
-		Model(&message.Message{}).
-		Where("id = ?", msgID).
-		Update("encrypted_content", newMsgEncrypted).Error
+func (r *MessageRepo) EditMessage(ctx context.Context, msgID uuid.UUID, ciphertext, aesKey, iv string) error {
+    return r.db.WithContext(ctx).
+        Model(&message.Message{}).
+        Where("id = ?", msgID).
+        Updates(map[string]interface{}{
+            "encrypted_content": ciphertext,
+            "encrypted_aes_key": aesKey,
+            "iv":                iv,
+        }).Error
 }
 func (r * MessageRepo) GetMessageByID(ctx context.Context, msgID uuid.UUID) (*message.Message, error) {
 	var msg message.Message

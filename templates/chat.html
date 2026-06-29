@@ -3,239 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Chat - Dashboard</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <title>Secure Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        body, html {
-            height: 100%;
-            overflow: hidden;
-            background-color: #f8f9fa;
-        }
-        .chat-container {
-            height: calc(100vh - 60px);
-        }
-        .sidebar {
-            background-color: #ffffff;
-            border-right: 1px solid #dee2e6;
-        }
+        body, html { height: 100%; overflow: hidden; background-color: #f8f9fa; }
+        .chat-container { height: calc(100vh - 60px); }
+        .sidebar { background-color: #fff; border-right: 1px solid #dee2e6; }
         .chat-messages {
             height: calc(100% - 70px);
             overflow-y: auto;
-            background-color: #ffffff;
+            background-color: #fff;
             background-image: radial-gradient(#e9ecef 1px, transparent 1px);
             background-size: 16px 16px;
         }
-        .room-item.active {
-            background-color: #e7f1ff;
-            color: #0d6efd;
-            font-weight: 600;
-        }
-        .message-bubble {
-            max-width: 75%;
-            border-radius: 15px;
-            padding: 10px 15px;
-            margin-bottom: 10px;
-        }
-        .message-system {
-            font-size: 0.85rem;
-            color: #6c757d;
-            text-align: center;
-            margin: 8px 0;
-        }
+        .room-item.active { background-color: #e7f1ff; color: #0d6efd; font-weight: 600; }
+        .message-bubble { max-width: 75%; border-radius: 15px; padding: 10px 15px; margin-bottom: 10px; }
+        .message-system { font-size: 0.85rem; color: #6c757d; text-align: center; margin: 8px 0; }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-dark bg-dark px-3" style="height: 60px;">
-        <a class="navbar-brand d-flex align-items-center" href="#">
-            <i class="bi bi-shield-lock-fill text-primary me-2"></i>
-            <span>Secure Chat Architecture</span>
-        </a>
-        <div class="d-flex align-items-center text-white">
-            <span class="me-3"><i class="bi bi-person-circle me-1"></i> <strong id="current-user">{{.username}}</strong></span>
-            <a href="/login" class="btn btn-outline-danger btn-sm">Logout</a>
-        </div>
-    </nav>
+<nav class="navbar navbar-dark bg-dark px-3" style="height:60px;">
+    <a class="navbar-brand d-flex align-items-center" href="#">
+        <i class="bi bi-shield-lock-fill text-primary me-2"></i>
+        <span>Secure Chat</span>
+    </a>
+    <div class="d-flex align-items-center text-white">
+        <span class="me-3"><i class="bi bi-person-circle me-1"></i> <strong id="current-user">{{.username}}</strong></span>
+        <!-- ✅ Fixed: was /login -->
+        <a href="/logout" class="btn btn-outline-danger btn-sm">Logout</a>
+    </div>
+</nav>
 
-    <div class="container-fluid chat-container">
-        <div class="row h-100">
-            
-            <div class="col-md-3 col-lg-2 sidebar py-3 d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="text-uppercase text-muted fw-bold mb-3 small tracking-wider">Active Rooms</h6>
-                    <div class="list-group list-group-flush mb-4" id="rooms-list">
-                        <button class="list-group-item list-group-item-action room-item active" onclick="switchRoom('General')">
-                            <i class="bi bi-hash me-2"></i>General
-                        </button>
-                        <button class="list-group-item list-group-item-action room-item" onclick="switchRoom('Gaming')">
-                            <i class="bi bi-hash me-2"></i>Gaming
-                        </button>
-                        <button class="list-group-item list-group-item-action room-item" onclick="switchRoom('Development')">
-                            <i class="bi bi-hash me-2"></i>Development
-                        </button>
-                    </div>
-                    
-                    <div class="input-group input-group-sm">
-                        <input type="text" id="new-room-input" class="form-control" placeholder="Create/Join room...">
-                        <button class="btn btn-primary" type="button" onclick="joinCustomRoom()">Join</button>
-                    </div>
+<div class="container-fluid chat-container">
+    <div class="row h-100">
+
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 sidebar py-3 d-flex flex-column justify-content-between">
+            <div>
+                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Rooms</h6>
+                <div class="list-group list-group-flush mb-3" id="rooms-list"></div>
+
+                <!-- Create Room -->
+                <div class="mb-2">
+                    <button class="btn btn-sm btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+                        <i class="bi bi-plus-circle me-1"></i> Create Room
+                    </button>
                 </div>
-                
-                <div class="card bg-light border-0">
-                    <div class="card-body p-2 text-center small text-muted">
-                        <i class="bi bi-hdd-network text-success me-1"></i> Connected to Host
-                    </div>
+
+                <!-- Join by invite code -->
+                <div class="input-group input-group-sm">
+                    <input type="text" id="invite-input" class="form-control" placeholder="Invite code...">
+                    <button class="btn btn-outline-secondary" onclick="joinByCode()">
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="col-md-9 col-lg-10 p-0 h-100 d-flex flex-column">
-                
-                <div class="bg-white px-4 py-2 border-bottom d-flex align-items-center justify-content-between shadow-sm">
-                    <div>
-                        <h5 class="mb-0 fw-bold" id="active-room-title"># General</h5>
-                        <small class="text-muted">Real-time event synchronization activated</small>
+            <div class="card bg-light border-0">
+                <div class="card-body p-2 text-center small text-muted" id="conn-status">
+                    <i class="bi bi-circle-fill text-danger me-1"></i> Disconnected
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat area -->
+        <div class="col-md-9 col-lg-10 p-0 h-100 d-flex flex-column">
+            <div class="bg-white px-4 py-2 border-bottom d-flex align-items-center justify-content-between shadow-sm">
+                <div>
+                    <h5 class="mb-0 fw-bold" id="active-room-title"># Select a room</h5>
+                    <small class="text-muted" id="invite-display"></small>
+                </div>
+                <button id="copy-invite-btn" class="btn btn-sm btn-outline-secondary d-none" onclick="copyInviteLink()">
+                    <i class="bi bi-clipboard me-1"></i> Copy invite link
+                </button>
+            </div>
+
+            <div class="chat-messages p-4 d-flex flex-column" id="chat-box">
+                <div class="message-system">Select or create a room to start chatting.</div>
+            </div>
+
+            <div class="p-3 bg-light border-top">
+                <form id="message-form" onsubmit="sendMessage(event)">
+                    <div class="input-group">
+                        <input type="text" id="message-input" class="form-control form-control-lg"
+                            placeholder="Type your message..." autocomplete="off" required>
+                        <button class="btn btn-primary px-4" type="submit">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
                     </div>
-                </div>
-
-                <div class="chat-messages p-4 d-flex flex-column" id="chat-box">
-                    <div class="message-system">Welcome to the secure-chat infrastructure pool. Type a message below.</div>
-                </div>
-
-                <div class="p-3 bg-light border-top">
-                    <form id="message-form" onsubmit="sendMessage(event)">
-                        <div class="input-group">
-                            <input type="text" id="message-input" class="form-control form-control-lg" placeholder="Type your message securely here..." autocomplete="off" required>
-                            <button class="btn btn-primary px-4" type="submit">
-                                <i class="bi bi-send-fill"></i>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        let ws;
-        let currentRoom = "General";
-        const chatBox = document.getElementById("chat-box");
-        const messageInput = document.getElementById("message-input");
-        const currentUser = document.getElementById("current-user").innerText;
+<!-- Create Room Modal -->
+<div class="modal fade" id="createRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create a Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="new-room-name" class="form-control" placeholder="Room name" maxlength="100">
+                <div id="create-room-error" class="text-danger mt-2 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="createRoom()">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-        function connectWebSocket() {
-            // Establish full-duplex socket channel connection matching your routes configuration
-            const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-            ws = new WebSocket(`${wsProtocol}${window.location.host}/ws`);
+<!-- Invite Link Modal -->
+<div class="modal fade" id="inviteLinkModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Room Created!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Share this invite link with others:</p>
+                <div class="input-group">
+                    <input type="text" id="invite-link-display" class="form-control" readonly>
+                    <button class="btn btn-outline-secondary" onclick="copyInviteLink()">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+                <div id="copy-confirm" class="text-success mt-2 d-none">✓ Copied!</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" data-bs-dismiss="modal">Start chatting</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-            ws.onopen = () => {
-                console.log("WebSocket engine linked successfully.");
-                // Sync the client with the default startup room pool
-                ws.send(`/join ${currentRoom}`);
-            };
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const CSRF_TOKEN  = "{{.csrfToken}}";
+    const currentUser = document.getElementById("current-user").innerText;
 
-            ws.onmessage = (event) => {
-                appendMessage(event.data);
-            };
+    let ws;
+    let currentRoom     = null;
+    let currentRoomName = "";
+    let currentInviteURL = "";
 
-            ws.onclose = () => {
-                console.warn("Socket channel closed. Reconnection loop scheduling...");
-                setTimeout(connectWebSocket, 3000);
-            };
+    const chatBox      = document.getElementById("chat-box");
+    const messageInput = document.getElementById("message-input");
 
-            ws.onerror = (error) => {
-                console.error("Socket pipeline exception observed: ", error);
-            };
+    // ─── WebSocket ────────────────────────────────────────────
+    function connectWebSocket() {
+        const proto = window.location.protocol === "https:" ? "wss://" : "ws://";
+        ws = new WebSocket(`${proto}${window.location.host}/ws`);
+
+        ws.onopen = () => {
+            document.getElementById("conn-status").innerHTML =
+                '<i class="bi bi-circle-fill text-success me-1"></i> Connected';
+            // Re-join current room after reconnect
+            if (currentRoom) {
+                ws.send(JSON.stringify({ type: "join", room_id: currentRoom }));
+            }
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.room_id === currentRoom) appendLiveMessage(msg);
+            } catch (e) {}
+        };
+
+        ws.onclose = () => {
+            document.getElementById("conn-status").innerHTML =
+                '<i class="bi bi-circle-fill text-danger me-1"></i> Disconnected';
+            setTimeout(connectWebSocket, 3000);
+        };
+    }
+
+    function sendMessage(e) {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN || !currentRoom) return;
+        ws.send(JSON.stringify({ type: "message", room_id: currentRoom, content: text }));
+        messageInput.value = "";
+    }
+
+    // ─── Room switching ───────────────────────────────────────
+    async function switchRoom(roomID, roomName) {
+        // ✅ Don't wipe chat if already in this room (e.g. own invite link)
+        if (currentRoom === roomID) return;
+
+        currentRoom     = roomID;
+        currentRoomName = roomName;
+
+        document.getElementById("active-room-title").innerText = `# ${roomName}`;
+        document.querySelectorAll(".room-item").forEach(el => el.classList.remove("active"));
+        const btn = document.querySelector(`.room-item[data-room-id="${roomID}"]`);
+        if (btn) btn.classList.add("active");
+
+        // Clear and show loading
+        chatBox.innerHTML = `<div class="message-system">Loading #${escapeHTML(roomName)}…</div>`;
+
+        // Tell WS hub to track this client in the room
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "join", room_id: roomID }));
         }
 
-        function sendMessage(e) {
-            e.preventDefault();
-            const text = messageInput.value.trim();
-            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+        // ✅ Load message history from DB
+        await loadHistory(roomID);
+    }
 
-            // Push payload upstream via client write pump
-            ws.send(text);
-            messageInput.value = "";
-        }
+    async function loadHistory(roomID) {
+        try {
+            const res = await fetch(`/rooms/${roomID}/messages`);
+            if (!res.ok) return;
+            const messages = await res.json();
 
-        function appendMessage(text) {
-            const isSystemMessage = text.includes("joined the") || text.includes("left the");
-            const msgRow = document.createElement("div");
-            msgRow.classList.add("d-flex", "w-100");
+            chatBox.innerHTML = "";
 
-            if (isSystemMessage) {
-                msgRow.innerHTML = `<div class="message-system mx-auto">${text}</div>`;
-            } else {
-                // Parsing basic formatting out of your current hub logic payload text: "username [Room]: message"
-                const containsSelf = text.startsWith(currentUser);
-                
-                if (containsSelf) {
-                    msgRow.classList.add("justify-content-end");
-                    msgRow.innerHTML = `
-                        <div class="message-bubble bg-primary text-white shadow-sm">
-                            <div class="small fw-light text-white-50">You</div>
-                            <div>${escapeHTML(text.substring(text.indexOf("]:") + 2 || 0))}</div>
-                        </div>`;
-                } else {
-                    msgRow.classList.add("justify-content-start");
-                    msgRow.innerHTML = `
-                        <div class="message-bubble bg-light border text-dark shadow-sm">
-                            <div class="small fw-bold text-primary">${escapeHTML(text.split(" ")[0] || "User")}</div>
-                            <div>${escapeHTML(text.substring(text.indexOf("]:") + 2 || 0))}</div>
-                        </div>`;
-                }
+            if (messages.length === 0) {
+                chatBox.innerHTML = `<div class="message-system">No messages yet. Say hello!</div>`;
+                return;
             }
 
-            chatBox.appendChild(msgRow);
-            chatBox.scrollTop = chatBox.scrollHeight; // Keep view scrolled down
+            // ✅ History comes newest-first from DB; reverse for display
+            [...messages].reverse().forEach(m => appendHistoryMessage(m));
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } catch (e) {
+            console.error("Failed to load history:", e);
+        }
+    }
+
+    // ─── Room API ─────────────────────────────────────────────
+    async function createRoom() {
+        const name  = document.getElementById("new-room-name").value.trim();
+        const errEl = document.getElementById("create-room-error");
+        errEl.classList.add("d-none");
+
+        if (!name) {
+            errEl.textContent = "Room name cannot be empty.";
+            errEl.classList.remove("d-none");
+            return;
         }
 
-        function switchRoom(roomName) {
-            if (roomName === currentRoom) return;
-            currentRoom = roomName;
-            
-            document.getElementById("active-room-title").innerText = `# ${roomName}`;
-            
-            // Highlight matching sidebar list elements
-            document.querySelectorAll(".room-item").forEach(item => {
-                item.classList.remove("active");
-                if (item.innerText.trim() === roomName) item.classList.add("active");
+        try {
+            const res = await fetch("/rooms", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": CSRF_TOKEN,
+                },
+                body: JSON.stringify({ name }),
             });
+            const data = await res.json();
 
-            // Clear box frame and transmit room switch command sequence back upstream
-            chatBox.innerHTML = `<div class="message-system">Switched entry target onto channel pool: #${roomName}</div>`;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(`/join ${roomName}`);
+            if (!res.ok) {
+                errEl.textContent = data.error || "Failed to create room.";
+                errEl.classList.remove("d-none");
+                return;
             }
+
+            bootstrap.Modal.getInstance(document.getElementById("createRoomModal")).hide();
+            document.getElementById("new-room-name").value = "";
+
+            addRoomToSidebar(data.id, data.name);
+
+            currentInviteURL = data.invite_url;
+            document.getElementById("invite-link-display").value = data.invite_url;
+            document.getElementById("copy-confirm").classList.add("d-none");
+            new bootstrap.Modal(document.getElementById("inviteLinkModal")).show();
+
+            await switchRoom(data.id, data.name);
+        } catch (e) {
+            errEl.textContent = "Network error: " + e.message;
+            errEl.classList.remove("d-none");
         }
+    }
 
-        function joinCustomRoom() {
-            const input = document.getElementById("new-room-input");
-            const roomName = input.value.trim();
-            if (!roomName) return;
+    // ✅ Join by code is now a fetch — no page reload, no chat wipe
+    async function joinByCode() {
+        const raw = document.getElementById("invite-input").value.trim();
+        if (!raw) return;
 
-            // Create new interactive navigation tab dynamically element
-            const roomsList = document.getElementById("rooms-list");
-            const newBtn = document.createElement("button");
-            newBtn.className = "list-group-item list-group-item-action room-item";
-            newBtn.innerHTML = `<i class="bi bi-hash me-2"></i>${roomName}`;
-            newBtn.onclick = () => switchRoom(roomName);
-            
-            roomsList.appendChild(newBtn);
-            input.value = "";
-            switchRoom(roomName);
+        const match = raw.match(/\/join\/([a-f0-9]+)/);
+        const code  = match ? match[1] : raw;
+
+        try {
+            const res = await fetch(`/join/${code}`, {
+                headers: { "X-CSRF-Token": CSRF_TOKEN },
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                alert(data.error || "Invalid invite code.");
+                return;
+            }
+
+            document.getElementById("invite-input").value = "";
+            addRoomToSidebar(data.id, data.name);
+            await switchRoom(data.id, data.name);
+        } catch (e) {
+            alert("Network error: " + e.message);
         }
+    }
 
-        function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, 
-                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-            );
+    function addRoomToSidebar(id, name) {
+        const list = document.getElementById("rooms-list");
+        if (document.querySelector(`.room-item[data-room-id="${id}"]`)) return;
+        const btn = document.createElement("button");
+        btn.className = "list-group-item list-group-item-action room-item";
+        btn.dataset.roomId = id;
+        btn.innerHTML = `<i class="bi bi-hash me-2"></i>${escapeHTML(name)}`;
+        btn.onclick = () => switchRoom(id, name);
+        list.appendChild(btn);
+    }
+
+    // ✅ Only loads rooms this user is a member of
+    async function loadRooms() {
+        try {
+            const res = await fetch("/rooms");
+            if (!res.ok) return;
+            const rooms = await res.json();
+            rooms.forEach(r => addRoomToSidebar(r.id, r.name));
+            // Auto-open first room if any
+            if (rooms.length > 0) await switchRoom(rooms[0].id, rooms[0].name);
+        } catch (e) {
+            console.error("Failed to load rooms:", e);
         }
+    }
 
-        // Fire up execution thread on window mount
-        window.onload = connectWebSocket;
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    function copyInviteLink() {
+        const link = document.getElementById("invite-link-display")?.value || currentInviteURL;
+        navigator.clipboard.writeText(link).then(() => {
+            const el = document.getElementById("copy-confirm");
+            if (el) {
+                el.classList.remove("d-none");
+                setTimeout(() => el.classList.add("d-none"), 2000);
+            }
+        });
+    }
+
+    // ─── Message rendering ────────────────────────────────────
+
+    // Live message from WebSocket (has username)
+    function appendLiveMessage(msg) {
+        const isSelf = msg.username === currentUser;
+        const row    = buildBubble(
+            isSelf ? "You" : (msg.username || "User"),
+            msg.content,
+            isSelf
+        );
+        chatBox.appendChild(row);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // History message from REST (has sender_id + encrypted content)
+    function appendHistoryMessage(msg) {
+        // ✅ Messages are encrypted — show a lock icon placeholder
+        // Real decryption would use the private key from localStorage
+        const isSelf = false; // History doesn't carry username yet — mark as other
+        const row = buildBubble("🔒 Encrypted", msg.content.substring(0, 20) + "…", isSelf, msg.created_at);
+        chatBox.appendChild(row);
+    }
+
+    function buildBubble(label, content, isSelf, time) {
+        const row = document.createElement("div");
+        row.classList.add("d-flex", "w-100");
+        const timeStr = time ? `<div class="small opacity-50">${escapeHTML(time)}</div>` : "";
+
+        if (isSelf) {
+            row.classList.add("justify-content-end");
+            row.innerHTML = `
+                <div class="message-bubble bg-primary text-white shadow-sm">
+                    <div class="small fw-light text-white-50">${escapeHTML(label)}</div>
+                    <div>${escapeHTML(content)}</div>
+                    ${timeStr}
+                </div>`;
+        } else {
+            row.classList.add("justify-content-start");
+            row.innerHTML = `
+                <div class="message-bubble bg-light border text-dark shadow-sm">
+                    <div class="small fw-bold text-primary">${escapeHTML(label)}</div>
+                    <div>${escapeHTML(content)}</div>
+                    ${timeStr}
+                </div>`;
+        }
+        return row;
+    }
+
+    function escapeHTML(str) {
+        if (!str) return "";
+        return str.replace(/[&<>'"]/g,
+            t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t] || t));
+    }
+
+    window.onload = () => {
+        connectWebSocket();
+        loadRooms();
+    };
+</script>
 </body>
 </html>

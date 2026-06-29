@@ -1,4 +1,3 @@
-// internal/adapters/primary/websocket/client.go
 package websocket
 
 import (
@@ -12,7 +11,7 @@ type Client struct {
 	Username string
 	Conn     *websocket.Conn
 	Send     chan []byte
-	Room     string 
+	Room     string
 	Hub      *Hub
 }
 
@@ -64,8 +63,8 @@ func (c *Client) ReadPump() {
 
 func (c *Client) WritePump() {
 	defer c.Conn.Close()
-	for message := range c.Send {
-		if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+	for msg := range c.Send {
+		if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			return
 		}
 	}

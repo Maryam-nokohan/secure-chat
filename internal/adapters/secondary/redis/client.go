@@ -23,3 +23,13 @@ func NewRedis(addr string)*Client{
 func (c *Client) Publish(ctx context.Context , channel string , payload string) error {
 	return c.RDB.Publish(ctx , channel , payload).Err()
 }
+func (c *Client) Subscribe(
+    ctx context.Context,
+    channel string,
+) *goredis.PubSub {
+
+    return c.RDB.Subscribe(
+        ctx,
+        channel,
+    )
+}

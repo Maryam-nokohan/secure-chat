@@ -72,7 +72,7 @@ func (s *MessageService) DeleteMessage(ctx context.Context, msgID, callerID uuid
     return s.msgRepo.DeleteMessage(ctx, msgID)
 }
 
-func (s *MessageService) EditMessage(ctx context.Context, msgID, callerID uuid.UUID, plaintext string) error {
+func (s *MessageService) EditMessage(ctx context.Context, msgID uuid.UUID, callerID uuid.UUID, plaintext string) error {
     msg, err := s.msgRepo.GetMessageByID(ctx, msgID)
     if err != nil {
         return err
@@ -88,5 +88,5 @@ func (s *MessageService) EditMessage(ctx context.Context, msgID, callerID uuid.U
     if err != nil {
         return err
     }
-    return s.msgRepo.EditMessage(ctx, msgID, payload.Ciphertext)
+    return s.msgRepo.EditMessage(ctx, msgID, payload.Ciphertext, payload.EncryptedKey, payload.IV)
 }

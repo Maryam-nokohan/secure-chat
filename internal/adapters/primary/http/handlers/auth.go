@@ -24,7 +24,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.HTML(http.StatusOK, "register.html", gin.H{"csrfToken": csrf.GetToken(c)})
 		return
 	}
-	
+
 	var req dto.RegisterRequest
 
 	if err := c.ShouldBind(&req); err != nil {
@@ -61,6 +61,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+    if c.Request.Method == http.MethodGet {
+        c.HTML(http.StatusOK, "login.html", gin.H{"csrfToken": csrf.GetToken(c)})
+        return
+    }
 	var req dto.LoginRequest
 
 	if err := c.ShouldBind(&req); err != nil {
