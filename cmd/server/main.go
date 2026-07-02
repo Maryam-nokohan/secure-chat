@@ -1,82 +1,81 @@
 package main
 
 import (
-	"context"
-	"log"
+    "context"
+    "log"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-gonic/gin"
+    "github.com/gin-contrib/sessions"
+    "github.com/gin-contrib/sessions/cookie"
+    "github.com/gin-gonic/gin"
 
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
-	jwtSvcPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
-	redisPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
-	"github.com/maryam-nokohan/secure-chat/internal/configs"
-	chatApp "github.com/maryam-nokohan/secure-chat/internal/core/application/chat"
-	"github.com/maryam-nokohan/secure-chat/internal/core/application/message"
-	userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
-	"github.com/maryam-nokohan/secure-chat/pkg"
+    "github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
+    "github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
+    "github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
+    "github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
+    jwtSvcPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
+    "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
+    "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
+    redisPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
+    "github.com/maryam-nokohan/secure-chat/internal/configs"
+    chatApp "github.com/maryam-nokohan/secure-chat/internal/core/application/chat"
+    msgApp "github.com/maryam-nokohan/secure-chat/internal/core/application/message"
+    userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
+    "github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 func main() {
-	pkg.Init()
-	pkg.LogInfo("Starting server...")
+    pkg.Init()
+    pkg.LogInfo("Starting server...")
 
-	cfg, err := configs.Load()
-	if err != nil {
-		pkg.LogFattal(err.Error())
-	}
+    cfg, err := configs.Load()
+    if err != nil {
+        pkg.LogFattal(err.Error())
+    }
+    db, err := postgres.NewDB(cfg)
+    if err != nil {
+        pkg.LogFattal(err.Error())
+    }
+    if err = migrations.RunMigrations(db); err != nil {
+        pkg.LogFattal(err.Error())
+    }
 
-	db, err := postgres.NewDB(cfg)
-	if err != nil {
-		pkg.LogFattal(err.Error())
-	}
-	if err = migrations.RunMigrations(db); err != nil {
-		pkg.LogFattal(err.Error())
-	}
+    chatRepo := postgres.NewChatRepository(db)
+    msgRepo  := postgres.NewMessageRepository(db)
+    userRepo, err := postgres.NewUserRepositoryService(db)
+    if err != nil {
+        pkg.LogFattal(err.Error())
+    }
 
-	chatRepo := postgres.NewChatRepository(db)
-	msgRepo := postgres.NewMessageRepository(db)
-	userRepo, err := postgres.NewUserRepositoryService(db)
-	if err != nil {
-		pkg.LogFattal(err.Error())
-	}
+    rdb     := redisPkg.NewRedis(cfg.RedisAddr)
+    jwtSvc  := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
+    userSvc := userApp.NewUSerService(userRepo, jwtSvc)
+    chatSvc := chatApp.NewChatService(chatRepo, msgRepo, rdb)
+    msgSvc  := msgApp.NewMessageService(msgRepo, userRepo) 
 
-	rdb := redisPkg.NewRedis(cfg.RedisAddr)
-	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
-	userSvc := userApp.NewUSerService(userRepo, jwtSvc)
-	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, rdb)
-	msgSvc := message.NewMessageService(msgRepo , userRepo , &pkg.HybridCryptoService{})
+    hub := websocket.NewHub()
+    go hub.Run()
 
-	hub := websocket.NewHub()
-	go hub.Run()
+    pubSub := chatApp.NewPubSubService(rdb, hub)
+    pubSub.Start(context.Background())
 
-	pubSub := chatApp.NewPubSubService(rdb, hub)
-	pubSub.Start(context.Background())
+    authHandler := handlers.NewAuthHandler(userSvc)
+    wsHandler   := websocket.NewHandler(hub, msgRepo)             
+    roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
+    userHandler := handlers.NewUserHandler(userRepo)             
 
-	authHandler := handlers.NewAuthHandler(userSvc)
-	wsHandler := websocket.NewHandler(hub)
-	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc)
+    gin.SetMode(gin.ReleaseMode)
+    r := gin.Default()
+    r.SetTrustedProxies(nil)
 
-	gin.SetMode(gin.ReleaseMode)
-	pkg.LogInfo("Starting Gin Server...")
-	r := gin.Default()
-	r.SetTrustedProxies(nil)
+    store := cookie.NewStore([]byte(cfg.CSRFSecrete))
+    r.Use(sessions.Sessions("csrf_session", store))
+    r.Use(middlewares.SecurityHeaders())
+    r.Use(middlewares.RateLimiter())
+    r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
 
-	store := cookie.NewStore([]byte(cfg.CSRFSecrete))
-	r.Use(sessions.Sessions("csrf_session", store))
-	r.Use(middlewares.SecurityHeaders())
-	r.Use(middlewares.RateLimiter())
-	r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
+    r.LoadHTMLGlob("templates/*")
+    routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, jwtSvc)
 
-	r.LoadHTMLGlob("templates/*")
-	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, jwtSvc)
-
-	pkg.LogInfo("Gin Server is running on :8080")
-	log.Fatal(r.Run(":8080"))
+    pkg.LogInfo("Listening on :8080")
+    log.Fatal(r.Run(":8080"))
 }

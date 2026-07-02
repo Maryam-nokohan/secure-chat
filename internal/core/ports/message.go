@@ -8,8 +8,8 @@ import (
 )
 
 type MessageServiceI interface {
-	ProcessMessage(ctx context.Context, roomID, senderID, recipientID uuid.UUID, plaintext string) (*message.Message, error)
-	GetHistory(ctx context.Context, roomID uuid.UUID) ([]*message.Message, error)
-	DeleteMessage(ctx context.Context, msgID, callerID uuid.UUID) error
-	EditMessage(ctx context.Context, msgID, callerID uuid.UUID, plaintext string) error
+    SaveGroupMessage(ctx context.Context, roomID, senderID uuid.UUID, senderUsername, content string) (*message.Message, error)
+    GetHistory(ctx context.Context, roomID uuid.UUID) ([]*message.Message, error)
+    DeleteMessage(ctx context.Context, msgID, callerID uuid.UUID) error
+    EditMessage(ctx context.Context, msgID, callerID uuid.UUID, content string) error
 }

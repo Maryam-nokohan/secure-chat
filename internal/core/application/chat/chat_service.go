@@ -112,3 +112,6 @@ func (c *ChatService) ListRooms(ctx context.Context) ([]*chat.Room, error) {
 func (c *ChatService) ListUserRooms(ctx context.Context, userID uuid.UUID) ([]*chat.Room, error) {
     return c.chatRepo.ListUserRooms(ctx, userID)
 }
+func (c *ChatService) GetRoom(ctx context.Context, roomID uuid.UUID) (*chat.Room, error) {
+    return c.chatRepo.FindRoomByID(ctx, roomID)
+}
