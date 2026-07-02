@@ -6,119 +6,108 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 )
 
-type HybridCryptoService struct{}
-
-type EncryptedPayload struct {
-	Ciphertext   string
-	EncryptedKey string
-	IV           string
+type EncryptionService struct {
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
 }
 
-func NewHybridCryptoService() *HybridCryptoService {
-	return &HybridCryptoService{}
+type EncryptedData struct {
+	EncryptedKey []byte
+	Nonce        []byte
+	Ciphertext   []byte
 }
 
-func (s *HybridCryptoService) Encrypt(publicKeyPEM string, plaintext []byte) (*EncryptedPayload, error) {
-	block, _ := pem.Decode([]byte(publicKeyPEM))
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block containing the public key")
-	}
-	pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+func NewEncryptionService() (*EncryptionService, error) {
+	privatKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
+		LogError(err)
 		return nil, err
 	}
-	rsaPubKey, ok := pubKey.(*rsa.PublicKey)
-	if !ok {
-		return nil, errors.New("not an RSA public key")
-	}
 
+	publickKey := &privatKey.PublicKey
+
+	return &EncryptionService{
+		privateKey: privatKey,
+		publicKey:  publickKey,
+	}, nil
+}
+
+func (e *EncryptionService) Encrypt(plain []byte) (*EncryptedData, error) {
 	aesKey := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, aesKey); err != nil {
 		return nil, err
 	}
 
-	blockCipher, err := aes.NewCipher(aesKey)
-	if err != nil {
-		return nil, err
-	}
-	gcm, err := cipher.NewGCM(blockCipher)
-	if err != nil {
-		return nil, err
-	}
-	iv := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-	ciphertext := gcm.Seal(nil, iv, plaintext, nil)
-
-	encryptedAESKey, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, rsaPubKey, aesKey, nil)
+	block, err := aes.NewCipher(aesKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &EncryptedPayload{
-		Ciphertext:   base64.StdEncoding.EncodeToString(ciphertext),
-		EncryptedKey: base64.StdEncoding.EncodeToString(encryptedAESKey),
-		IV:           base64.StdEncoding.EncodeToString(iv),
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nil, nonce, plain, nil)
+
+	encryptedKey, err := rsa.EncryptOAEP(
+		sha256.New(),
+		rand.Reader,
+		e.publicKey,
+		aesKey,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EncryptedData{
+		EncryptedKey: encryptedKey,
+		Nonce:        nonce,
+		Ciphertext:   ciphertext,
 	}, nil
 }
 
-func (s *HybridCryptoService) Decrypt(privateKeyPEM string, payload *EncryptedPayload) ([]byte, error) {
-    block, _ := pem.Decode([]byte(privateKeyPEM))
-    if block == nil {
-        return nil, errors.New("failed to parse PEM block")
-    }
-    privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-    if err != nil {
-        return nil, err
-    }
+func (e *EncryptionService) Decrypt(data *EncryptedData) ([]byte, error) {
+	aesKey, err := rsa.DecryptOAEP(
+		sha256.New(),
+		rand.Reader,
+		e.privateKey,
+		data.EncryptedKey,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-    encryptedKeyBytes, err := base64.StdEncoding.DecodeString(payload.EncryptedKey)
-    if err != nil {
-        return nil, fmt.Errorf("decode encrypted key: %w", err)
-    }
-    ciphertextBytes, err := base64.StdEncoding.DecodeString(payload.Ciphertext)
-    if err != nil {
-        return nil, fmt.Errorf("decode ciphertext: %w", err)
-    }
-    ivBytes, err := base64.StdEncoding.DecodeString(payload.IV)
-    if err != nil {
-        return nil, fmt.Errorf("decode IV: %w", err)
-    }
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return nil, err
+	}
 
-    aesKey, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, privKey, encryptedKeyBytes, nil)
-    if err != nil {
-        return nil, err
-    }
-    blockCipher, err := aes.NewCipher(aesKey)
-    if err != nil {
-        return nil, err
-    }
-    gcm, err := cipher.NewGCM(blockCipher)
-    if err != nil {
-        return nil, err
-    }
-    return gcm.Open(nil, ivBytes, ciphertextBytes, nil)
-}
-func ValidateRSAPublicKey(pemStr string) error {
-    block, _ := pem.Decode([]byte(pemStr))
-    if block == nil {
-        return errors.New("invalid public key: not a PEM block")
-    }
-    pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-    if err != nil {
-        return errors.New("invalid public key: " + err.Error())
-    }
-    if _, ok := pub.(*rsa.PublicKey); !ok {
-        return errors.New("invalid public key: not an RSA key")
-    }
-    return nil
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	plaintext, err := gcm.Open(
+		nil,
+		data.Nonce,
+		data.Ciphertext,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("decryption failed: %w", err)
+	}
+
+	return plaintext, nil
 }
