@@ -4,34 +4,27 @@ import (
 	"context"
 
 	"github.com/maryam-nokohan/secure-chat/pkg"
-	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9"
 )
 
 type Client struct {
-	RDB *goredis.Client
+	RDB *redis.Client
 }
 
-func NewRedis(addr string)*Client{
+func NewRedis(addr string) *Client {
 	pkg.LogInfo("Initializing Redis Client...")
-	rdb := goredis.NewClient(&goredis.Options{
-		Addr: addr,
-	})
 
-	return &Client{
-		RDB: rdb,
+	opts, err := redis.ParseURL(addr)
+	if err != nil {
+		pkg.LogFattal("invalid REDIS_ADDR: " + err.Error())
 	}
-}
 
-func (c *Client) Publish(ctx context.Context , channel string , payload string) error {
-	return c.RDB.Publish(ctx , channel , payload).Err()
-}
-func (c *Client) Subscribe(
-    ctx context.Context,
-    channel string,
-) *goredis.PubSub {
+	rdb := redis.NewClient(opts)
 
-    return c.RDB.Subscribe(
-        ctx,
-        channel,
-    )
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		pkg.LogFattal("failed to connect to redis: " + err.Error())
+	}
+	pkg.LogInfo("Redis connection established.")
+
+	return &Client{RDB: rdb}
 }

@@ -10,7 +10,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/secure-chat ./cmd/server/main.go
 
-FROM alpine:latest
+FROM alpine:3.22
 WORKDIR /app
 
 # Pull the binary, env, templates, AND migrations into the final runner stage

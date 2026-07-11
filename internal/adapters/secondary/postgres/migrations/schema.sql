@@ -1,5 +1,3 @@
--- internal/adapters/secondary/postgres/migrations/schema.sql
-
 -- Patch rooms table
 DO $$ BEGIN
     IF NOT EXISTS (
@@ -20,19 +18,9 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ✅ Migrate messages table to simplified plaintext structure
--- Drop old encrypted schema (data was unreadable anyway)
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='messages' AND (column_name='encrypted_content' OR column_name='text')
-    ) THEN
-        DROP TABLE IF EXISTS messages CASCADE;
-    END IF;
-END $$;
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
+-- user table
 CREATE TABLE IF NOT EXISTS users (
     id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     username   VARCHAR(50) UNIQUE NOT NULL,
