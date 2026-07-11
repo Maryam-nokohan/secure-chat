@@ -1,6 +1,9 @@
 package pkg
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"unicode"
 )
@@ -58,6 +61,23 @@ func ValidatePassword(password string) error {
 		return errors.New(
 			"password must contain at least one special character",
 		)
+	}
+
+	return nil
+}
+func ValidateRSAPublicKey(publicKeyPEM string) error {
+	block, _ := pem.Decode([]byte(publicKeyPEM))
+	if block == nil {
+		return errors.New("invalid PEM public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := pub.(*rsa.PublicKey); !ok {
+		return errors.New("not an RSA public key")
 	}
 
 	return nil
