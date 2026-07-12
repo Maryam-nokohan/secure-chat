@@ -13,6 +13,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	jwtSvcPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
+	natsPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/nats"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
 	redisPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
@@ -38,29 +39,39 @@ func main() {
 	if err = migrations.RunMigrations(db); err != nil {
 		pkg.LogFattal(err.Error())
 	}
-	rdb := redisPkg.NewRedis(cfg.RedisAddr)
-	cache := redisPkg.NewRedisCache(rdb)
 
 	chatRepo := postgres.NewChatRepository(db)
 	msgRepo := postgres.NewMessageRepository(db)
-	userRepo, err := postgres.NewUserRepositoryService(db ,cache)
+
+	rdb := redisPkg.NewRedis(cfg.RedisURL)
+	cache := redisPkg.NewRedisCache(rdb)
+
+	userRepo, err := postgres.NewUserRepositoryService(db, cache)
 	if err != nil {
 		pkg.LogFattal(err.Error())
 	}
-	
+
+	broker, err := natsPkg.NewNATS(cfg.NatsURL)
+	if err != nil {
+		pkg.LogFattal("failed to connect to NATS: " + err.Error())
+	}
+	defer broker.Close()
+
 	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
 	userSvc := userApp.NewUserService(userRepo, jwtSvc)
-	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, rdb, cache)
+	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, cache)
 	msgSvc := msgApp.NewMessageService(msgRepo, userRepo, cache)
 
 	hub := websocket.NewHub()
 	go hub.Run()
 
-	pubSub := chatApp.NewPubSubService(rdb, hub)
-	pubSub.Start(context.Background())
+	pubSub := chatApp.NewPubSubService(broker, hub)
+	if err := pubSub.Start(context.Background()); err != nil {
+		pkg.LogFattal("failed to start pubsub: " + err.Error())
+	}
 
 	authHandler := handlers.NewAuthHandler(userSvc)
-	wsHandler := websocket.NewHandler(hub, msgSvc, rdb)
+	wsHandler := websocket.NewHandler(hub, msgSvc, broker)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
 	userHandler := handlers.NewUserHandler(userRepo)
 

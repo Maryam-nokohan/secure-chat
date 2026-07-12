@@ -14,6 +14,18 @@ import (
 
 const userCacheTTL = 10 * time.Minute
 
+type cachedUser struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	PublicKey string    `json:"public_key"`
+	Bio       string    `json:"bio"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func toCached(u user.User) cachedUser {
+	return cachedUser{ID: u.ID, Username: u.Username, PublicKey: u.PublicKey, Bio: u.Bio, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
+}
 type UserRepository struct {
 	db    *gorm.DB
 	cache ports.Cache
@@ -53,19 +65,11 @@ func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*user.
 }
 
 func (r *UserRepository) FindUserByUsername(ctx context.Context, username string) (*user.User, error) {
-	key := userNameKey(username)
-	if cached, err := r.cache.Get(ctx, key); err == nil {
-		var u user.User
-		if json.Unmarshal(cached, &u) == nil {
-			return &u, nil
-		}
-	}
-
+	
 	var u user.User
 	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&u).Error; err != nil {
 		return nil, err
 	}
-	_ = r.cache.Set(ctx, key, u, userCacheTTL)
 	return &u, nil
 }
 

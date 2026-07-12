@@ -26,6 +26,13 @@ services:
       timeout: 5s
       retries: 5
 
+  nats:
+    image: nats:latest
+    container_name: secure-chat-nats
+    restart: always
+    ports:
+      - "4222:4222"
+
   app:
     build: .
     container_name: secure-chat-app
@@ -36,11 +43,13 @@ services:
       - .env
     environment:
       - DB_HOST=postgres
-      - REDIS_ADDR=redis:6379
+      - NATS_URL=nats://nats:4222
     depends_on:
       postgres:
         condition: service_healthy
-      redis:                    
+      redis:
+        condition: service_started
+      nats:
         condition: service_started
 
 volumes:

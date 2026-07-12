@@ -17,15 +17,16 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DBUser:     os.Getenv("DB_USER"),
-		DBPassword: os.Getenv("DB_PASSWORD"),
-		DBHost:     os.Getenv("DB_HOST"),
-		DBPort:     os.Getenv("DB_PORT"),
-		DBName:     os.Getenv("DB_NAME"),
-		RedisAddr: os.Getenv("REDIS_ADDR"),
-		JWTSecret: os.Getenv("JWT_SECRET"),
-		CSRFSecrete: os.Getenv("CSRF_SECRET"),
-	}
+	DBUser:      os.Getenv("DB_USER"),
+	DBPassword:  os.Getenv("DB_PASSWORD"),
+	DBHost:      os.Getenv("DB_HOST"),
+	DBPort:      os.Getenv("DB_PORT"),
+	DBName:      os.Getenv("DB_NAME"),
+	RedisURL:   os.Getenv("REDIS_URL"),
+	NatsURL:     os.Getenv("NATS_URL"),
+	JWTSecret:   os.Getenv("JWT_SECRET"),
+	CSRFSecrete: os.Getenv("CSRF_SECRET"),
+}
 
 	cfg.DSN = fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",

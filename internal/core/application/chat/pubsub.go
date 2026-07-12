@@ -5,48 +5,31 @@ import (
 	"encoding/json"
 
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/message"
+	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 type PubSubService struct {
-	redis *redis.Client
-	hub   *websocket.Hub
+	broker ports.MessageBroker
+	hub    *websocket.Hub
 }
 
-func NewPubSubService(
-	redis *redis.Client,
-	hub *websocket.Hub,
-) *PubSubService {
-	return &PubSubService{
-		redis: redis,
-		hub:   hub,
-	}
+func NewPubSubService(broker ports.MessageBroker, hub *websocket.Hub) *PubSubService {
+	return &PubSubService{broker: broker, hub: hub}
 }
 
-func (p *PubSubService) Start(
-	ctx context.Context,
-) {
-	pkg.LogInfo("Starting Pub sub ...")
-	sub := p.redis.Subscribe(
-		ctx,
-		"chat_messages",
-	)
+func (p *PubSubService) Start(ctx context.Context) error {
+	pkg.LogInfo("Subscribing to NATS subject: " + message.ChatSubject)
 
-	ch := sub.Channel()
+	return p.broker.Subscribe(ctx, message.ChatSubject, func(ctx context.Context ,payload []byte) {
+		
+		var event message.PubSubMessage
 
-	go func() {
-		for msg := range ch {
-			var event message.PubSubMessage
-			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
-				continue
-			}
-			raw, err := json.Marshal(event)
-			if err != nil {
-				continue
-			}
-			p.hub.BroadcastToRoom(event.RoomID, raw)
+		if err := json.Unmarshal(payload, &event); err != nil {
+			pkg.LogError(err)
+			return 
 		}
-	}()
+		p.hub.BroadcastToRoom(event.RoomID, payload)
+	})
 }

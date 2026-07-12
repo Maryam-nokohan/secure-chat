@@ -20,6 +20,7 @@ func NewRedisCache(client *Client) ports.Cache {
 }
 
 func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
+	pkg.LogInfo("Getting cache for key:" + key)
 	val, err := r.client.RDB.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -31,6 +32,7 @@ func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 func (r *RedisCache) Set(ctx context.Context, key string, value any, tm time.Duration) error {
+	pkg.LogInfo("Setting cache for key:"+ key)
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err

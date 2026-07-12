@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
 	"github.com/maryam-nokohan/secure-chat/internal/core/domain/chat"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 	"github.com/maryam-nokohan/secure-chat/pkg"
@@ -20,13 +19,12 @@ const roomCacheTTL = 5 * time.Minute
 type ChatService struct {
 	chatRepo ports.ChatRepositoryI
 	msgRepo  ports.MessageRepository
-	redis    *redis.Client
 	cache    ports.Cache
 }
 
-func NewChatService(chatRepo ports.ChatRepositoryI, msgRepo ports.MessageRepository, redis *redis.Client, cache ports.Cache) ports.ChatServiceI {
+func NewChatService(chatRepo ports.ChatRepositoryI, msgRepo ports.MessageRepository, cache ports.Cache) ports.ChatServiceI {
 	pkg.LogInfo("Init ChatService...")
-	return &ChatService{chatRepo: chatRepo, msgRepo: msgRepo, redis: redis, cache: cache}
+	return &ChatService{chatRepo: chatRepo, msgRepo: msgRepo, cache: cache}
 }
 func roomCacheKey(id uuid.UUID) string { return "room:" + id.String() }
 

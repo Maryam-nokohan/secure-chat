@@ -179,11 +179,18 @@ const CURRENT_UID  = "{{.userID}}";
 let ws;
 let currentRoom     = null;
 let currentRoomName = "";
-let roomJoinReady   = false; // ✅ true only after server acks the join
-let onlineUsers     = {};    // userID → username
+let roomJoinReady   = false; 
+let onlineUsers     = {};   
 
 const chatBox      = document.getElementById("chat-box");
 const messageInput = document.getElementById("message-input");
+
+function fmtTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 // ── WebSocket ─────────────────────────────────────────────────
 function connectWebSocket() {
@@ -202,7 +209,6 @@ function connectWebSocket() {
 
         switch (msg.type) {
         case "joined":
-            // ✅ Server confirmed our join — now enable the input
             if (msg.room_id === currentRoom) {
                 roomJoinReady = true;
                 messageInput.disabled = false;
@@ -215,7 +221,6 @@ function connectWebSocket() {
             break;
 
         case "presence":
-            // ✅ Real-time online/offline updates
             if (msg.online) {
                 onlineUsers[msg.user_id] = msg.username;
             } else {
@@ -259,7 +264,7 @@ function setConnStatus(online) {
 
 // ── Room switching ────────────────────────────────────────────
 async function switchRoom(roomID, roomName) {
-    if (currentRoom === roomID) return; // ✅ already here — do nothing
+    if (currentRoom === roomID) return;
 
     currentRoom     = roomID;
     currentRoomName = roomName;
@@ -305,7 +310,6 @@ async function loadRoomProfile(roomID) {
         const res = await fetch(`/rooms/${roomID}/profile`);
         if (!res.ok) return;
         currentRoomProfile = await res.json();
-        // Seed online map from profile (REST-time snapshot)
         currentRoomProfile.members.forEach(m => {
             if (m.online) onlineUsers[m.id] = m.username;
         });
@@ -435,16 +439,14 @@ function copyRoomInvite() {
 // ── Message rendering ─────────────────────────────────────────
 function appendLiveMessage(msg) {
     const isSelf = msg.username === CURRENT_USER;
-    chatBox.appendChild(bubble(isSelf ? "You" : msg.username, msg.content, isSelf, msg.time));
+    chatBox.appendChild(bubble(isSelf ? "You" : msg.username, msg.content, isSelf, fmtTime(msg.time)));
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 function appendHistoryMessage(msg) {
-    // ✅ isSelf uses sender_id compared to current user's ID
     const isSelf = msg.sender_id === CURRENT_UID;
-    chatBox.appendChild(bubble(isSelf ? "You" : msg.username, msg.content, isSelf, msg.time));
+    chatBox.appendChild(bubble(isSelf ? "You" : msg.username, msg.content, isSelf, fmtTime(msg.time)));
 }
-
 function bubble(label, content, isSelf, time) {
     const row = document.createElement("div");
     row.className = `d-flex w-100 ${isSelf ? "justify-content-end" : "justify-content-start"}`;

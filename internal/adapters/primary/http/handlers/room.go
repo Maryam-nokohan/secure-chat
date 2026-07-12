@@ -1,13 +1,14 @@
 package handlers
 
 import (
-    "fmt"
-    "net/http"
+	"fmt"
+	"net/http"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    "github.com/gofrs/uuid"
-    "github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
-    "github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
+	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
+	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 )
 
 type RoomHandler struct {
@@ -120,7 +121,7 @@ func (h *RoomHandler) GetMessages(c *gin.Context) {
             SenderID: m.SenderID.String(),
             Username: m.SenderUsername,
             Content:  m.Content,
-            Time:     m.CreatedAt.Format("15:04"),
+            Time:     m.CreatedAt.Format(time.RFC3339),
         }
     }
     c.JSON(http.StatusOK, result)
