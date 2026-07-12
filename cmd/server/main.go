@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"log"
 
 	"github.com/gin-contrib/sessions"
@@ -44,7 +45,16 @@ func main() {
 	msgRepo := postgres.NewMessageRepository(db)
 
 	rdb := redisPkg.NewRedis(cfg.RedisURL)
-	cache := redisPkg.NewRedisCache(rdb)
+	basecache := redisPkg.NewRedisCache(rdb)
+
+	encKey, err := hex.DecodeString(cfg.CacheEncryptionKey)
+	if err != nil || len(encKey) != 32 {
+		pkg.LogFattal("CACHE_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)")
+	}
+	cache, err := redisPkg.NewEncryptedCache(basecache, encKey)
+	if err != nil {
+		pkg.LogFattal(err.Error())
+	}
 
 	userRepo, err := postgres.NewUserRepositoryService(db, cache)
 	if err != nil {
@@ -59,9 +69,8 @@ func main() {
 
 	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
 	userSvc := userApp.NewUserService(userRepo, jwtSvc)
-	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, cache)
+	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, cache, broker)
 	msgSvc := msgApp.NewMessageService(msgRepo, userRepo, cache)
-
 	hub := websocket.NewHub()
 	go hub.Run()
 

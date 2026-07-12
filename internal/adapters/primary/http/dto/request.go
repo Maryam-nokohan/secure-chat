@@ -14,3 +14,8 @@ type LoginRequest struct{
 	Username string `form:"username"`
 	Password string `form:"password"`
 }
+type roomDTO struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Unread bool   `json:"unread"`
+	}

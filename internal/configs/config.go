@@ -9,8 +9,9 @@ type Config struct {
 	DSN        string
 
 	RedisURL string
-	NatsURL   string
+	NatsURL  string
 
-	JWTSecret   string
-	CSRFSecrete string
+	JWTSecret          string
+	CSRFSecrete        string
+	CacheEncryptionKey string
 }

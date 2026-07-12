@@ -89,3 +89,32 @@ func (r *ChatRepository) ListUserRooms(ctx context.Context, userID uuid.UUID) ([
     }
     return rooms, nil
 }
+func (r *ChatRepository) MarkRoomRead(ctx context.Context, roomID, userID uuid.UUID) error {
+	return r.db.WithContext(ctx).Exec(`
+		INSERT INTO room_reads (room_id, user_id, last_read_at)
+		VALUES (?, ?, now())
+		ON CONFLICT (room_id, user_id) DO UPDATE SET last_read_at = now()
+	`, roomID, userID).Error
+}
+
+func (r *ChatRepository) GetUnreadRoomIDs(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]bool, error) {
+	var ids []uuid.UUID
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT r.id FROM rooms r
+		JOIN room_users ru ON ru.room_id = r.id AND ru.user_id = ?
+		LEFT JOIN room_reads rr ON rr.room_id = r.id AND rr.user_id = ?
+		WHERE EXISTS (
+			SELECT 1 FROM messages m
+			WHERE m.room_id = r.id
+			AND m.created_at > COALESCE(rr.last_read_at, 'epoch'::timestamptz)
+		)
+	`, userID, userID).Scan(&ids).Error
+	if err != nil {
+		return nil, err
+	}
+	set := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	return set, nil
+}

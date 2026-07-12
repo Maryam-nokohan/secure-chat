@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS messages (
     content         TEXT        NOT NULL,
     created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS room_reads (
+    room_id      UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    last_read_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (room_id, user_id)
+);
 
 CREATE INDEX IF NOT EXISTS idx_messages_room_id    ON messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);

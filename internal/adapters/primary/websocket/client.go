@@ -80,7 +80,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 
 			if pubErr := c.Broker.Publish(context.Background(), message.ChatSubject, payload); pubErr != nil {
 				pkg.LogError(pubErr)
-				c.Hub.BroadcastToRoom(c.Room, payload) // local fallback if NATS is unreachable
+				c.Hub.BroadcastToRoom(c.Room, payload) 
 			}
 		}
 	}

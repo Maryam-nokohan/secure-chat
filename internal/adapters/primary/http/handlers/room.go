@@ -12,159 +12,171 @@ import (
 )
 
 type RoomHandler struct {
-    chatSvc ports.ChatServiceI
-    msgSvc  ports.MessageServiceI
-    hub     *websocket.Hub 
+	chatSvc ports.ChatServiceI
+	msgSvc  ports.MessageServiceI
+	hub     *websocket.Hub
 }
 
 func NewRoomHandler(chatSvc ports.ChatServiceI, msgSvc ports.MessageServiceI, hub *websocket.Hub) *RoomHandler {
-    return &RoomHandler{chatSvc: chatSvc, msgSvc: msgSvc, hub: hub}
+	return &RoomHandler{chatSvc: chatSvc, msgSvc: msgSvc, hub: hub}
 }
 
 func (h *RoomHandler) CreateRoom(c *gin.Context) {
-    var req struct {
-        Name string `json:"name" binding:"required,min=1,max=100"`
-    }
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "room name is required (max 100 chars)"})
-        return
-    }
-    userIDStr, _ := c.Get("userID")
-    creatorID, err := uuid.FromString(userIDStr.(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
-        return
-    }
-    room, err := h.chatSvc.CreateRoom(c.Request.Context(), creatorID, req.Name)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    _ = h.chatSvc.JoinRoom(c.Request.Context(), room.ID, creatorID)
+	var req struct {
+		Name string `json:"name" binding:"required,min=1,max=100"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "room name is required (max 100 chars)"})
+		return
+	}
+	userIDStr, _ := c.Get("userID")
+	username, _ := c.Get("username")
+	creatorID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	room, err := h.chatSvc.CreateRoom(c.Request.Context(), creatorID, req.Name)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	_ = h.chatSvc.JoinRoom(c.Request.Context(), room.ID, creatorID, username.(string))
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	inviteURL := fmt.Sprintf("%s://%s/join/%s", scheme, c.Request.Host, room.InviteCode)
 
-    scheme := "http"
-    if c.Request.TLS != nil {
-        scheme = "https"
-    }
-    inviteURL := fmt.Sprintf("%s://%s/join/%s", scheme, c.Request.Host, room.InviteCode)
-
-    c.JSON(http.StatusCreated, gin.H{
-        "id":         room.ID.String(),
-        "name":       room.Name,
-        "invite_code": room.InviteCode,
-        "invite_url": inviteURL,
-    })
+	c.JSON(http.StatusCreated, gin.H{
+		"id":          room.ID.String(),
+		"name":        room.Name,
+		"invite_code": room.InviteCode,
+		"invite_url":  inviteURL,
+	})
 }
 
 func (h *RoomHandler) ListRooms(c *gin.Context) {
-    userIDStr, _ := c.Get("userID")
-    userID, err := uuid.FromString(userIDStr.(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
-        return
-    }
-    rooms, err := h.chatSvc.ListUserRooms(c.Request.Context(), userID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list rooms"})
-        return
-    }
-    type roomDTO struct {
-        ID   string `json:"id"`
-        Name string `json:"name"`
-    }
-    result := make([]roomDTO, len(rooms))
-    for i, r := range rooms {
-        result[i] = roomDTO{ID: r.ID.String(), Name: r.Name}
-    }
-    c.JSON(http.StatusOK, result)
+	userIDStr, _ := c.Get("userID")
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
+		return
+	}
+	rooms, err := h.chatSvc.ListUserRooms(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list rooms"})
+		return
+	}
+	unread, err := h.chatSvc.GetUnreadRoomIDs(c.Request.Context(), userID)
+	if err != nil {
+		unread = map[uuid.UUID]bool{}
+	}
+	type roomDTO struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Unread bool   `json:"unread"`
+	}
+	result := make([]roomDTO, len(rooms))
+	for i, r := range rooms {
+		result[i] = roomDTO{ID: r.ID.String(), Name: r.Name, Unread: unread[r.ID]}
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 func (h *RoomHandler) JoinByCode(c *gin.Context) {
-    code := c.Param("code")
-    userIDStr, _ := c.Get("userID")
-    userID, err := uuid.FromString(userIDStr.(string))
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
-        return
-    }
-    room, err := h.chatSvc.JoinRoomByCode(c.Request.Context(), code, userID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"id": room.ID.String(), "name": room.Name})
+	code := c.Param("code")
+	userIDStr, _ := c.Get("userID")
+	username, _ := c.Get("username")
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
+		return
+	}
+	room, err := h.chatSvc.JoinRoomByCode(c.Request.Context(), code, userID, username.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": room.ID.String(), "name": room.Name})
 }
 
 func (h *RoomHandler) GetMessages(c *gin.Context) {
-    roomIDStr := c.Param("id")
-    roomID, err := uuid.FromString(roomIDStr)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room id"})
-        return
-    }
-    messages, err := h.msgSvc.GetHistory(c.Request.Context(), roomID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load history"})
-        return
-    }
-    type msgDTO struct {
-        ID       string `json:"id"`
-        SenderID string `json:"sender_id"`
-        Username string `json:"username"`
-        Content  string `json:"content"`
-        Time     string `json:"time"`
-    }
-    result := make([]msgDTO, len(messages))
-    for i, m := range messages {
-        result[i] = msgDTO{
-            ID:       m.ID.String(),
-            SenderID: m.SenderID.String(),
-            Username: m.SenderUsername,
-            Content:  m.Content,
-            Time:     m.CreatedAt.Format(time.RFC3339),
-        }
-    }
-    c.JSON(http.StatusOK, result)
+	roomIDStr := c.Param("id")
+	roomID, err := uuid.FromString(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room id"})
+		return
+	}
+	messages, err := h.msgSvc.GetHistory(c.Request.Context(), roomID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load history"})
+		return
+	}
+
+	if userIDStr, ok := c.Get("userID"); ok {
+		if userID, err := uuid.FromString(userIDStr.(string)); err == nil {
+			_ = h.chatSvc.MarkRoomRead(c.Request.Context(), roomID, userID)
+		}
+	}
+	type msgDTO struct {
+		ID       string `json:"id"`
+		SenderID string `json:"sender_id"`
+		Username string `json:"username"`
+		Content  string `json:"content"`
+		Time     string `json:"time"`
+	}
+	result := make([]msgDTO, len(messages))
+	for i, m := range messages {
+		result[i] = msgDTO{
+			ID:       m.ID.String(),
+			SenderID: m.SenderID.String(),
+			Username: m.SenderUsername,
+			Content:  m.Content,
+			Time:     m.CreatedAt.Format(time.RFC3339),
+		}
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 func (h *RoomHandler) GetRoomProfile(c *gin.Context) {
-    roomIDStr := c.Param("id")
-    roomID, err := uuid.FromString(roomIDStr)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room id"})
-        return
-    }
-    room, err := h.chatSvc.GetRoom(c.Request.Context(), roomID)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "room not found"})
-        return
-    }
+	roomIDStr := c.Param("id")
+	roomID, err := uuid.FromString(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room id"})
+		return
+	}
+	room, err := h.chatSvc.GetRoom(c.Request.Context(), roomID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "room not found"})
+		return
+	}
 
-    online := h.hub.GetOnlineUserIDs()
+	online := h.hub.GetOnlineUserIDs()
 
-    type memberDTO struct {
-        ID       string `json:"id"`
-        Username string `json:"username"`
-        Online   bool   `json:"online"`
-    }
-    members := make([]memberDTO, len(room.Users))
-    for i, u := range room.Users {
-        members[i] = memberDTO{
-            ID:       u.ID.String(),
-            Username: u.Username,
-            Online:   online[u.ID.String()],
-        }
-    }
+	type memberDTO struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+		Online   bool   `json:"online"`
+	}
+	members := make([]memberDTO, len(room.Users))
+	for i, u := range room.Users {
+		members[i] = memberDTO{
+			ID:       u.ID.String(),
+			Username: u.Username,
+			Online:   online[u.ID.String()],
+		}
+	}
 
-    scheme := "http"
-    if c.Request.TLS != nil {
-        scheme = "https"
-    }
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "id":         room.ID.String(),
-        "name":       room.Name,
-        "invite_url": fmt.Sprintf("%s://%s/join/%s", scheme, c.Request.Host, room.InviteCode),
-        "members":    members,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"id":         room.ID.String(),
+		"name":       room.Name,
+		"invite_url": fmt.Sprintf("%s://%s/join/%s", scheme, c.Request.Host, room.InviteCode),
+		"members":    members,
+	})
 }

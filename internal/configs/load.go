@@ -26,6 +26,7 @@ func Load() (*Config, error) {
 	NatsURL:     os.Getenv("NATS_URL"),
 	JWTSecret:   os.Getenv("JWT_SECRET"),
 	CSRFSecrete: os.Getenv("CSRF_SECRET"),
+	CacheEncryptionKey: os.Getenv("CACHE_ENCRYPTION_KEY"),
 }
 
 	cfg.DSN = fmt.Sprintf(

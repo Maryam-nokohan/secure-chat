@@ -17,4 +17,6 @@ type ChatRepositoryI interface {
 	DeleteRoom(ctx context.Context, id uuid.UUID) error
 	AddUserToRoom(ctx context.Context, roomID, userID uuid.UUID) error
 	RemoveUserFromRoom(ctx context.Context, roomID, userID uuid.UUID) error
+	MarkRoomRead(ctx context.Context, roomID, userID uuid.UUID) error
+	GetUnreadRoomIDs(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]bool, error)
 }
