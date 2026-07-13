@@ -1,59 +1,174 @@
-# Secure Chat Service
+# Secure Chat Service 🔐
 
-A real-time, secure chat application built with Go, Gin, PostgreSQL, Redis, NATS, and WebSockets. The project is organized around a hexagonal architecture with clear separation between domain logic, application services, and infrastructure adapters.
+A real-time secure messaging platform built with **Go**, **WebSockets**, and an event-driven architecture.  
+The project follows **Hexagonal Architecture (Ports & Adapters)** to keep business logic independent from infrastructure concerns.
 
-## Overview
+Secure Chat provides scalable real-time communication with persistent storage, caching, asynchronous events, and security-focused features.
 
-This service provides:
+---
 
-- User registration and authentication
-- Chat room creation and management
-- Real-time messaging through WebSockets
-- Message persistence with PostgreSQL
-- Cached data access with Redis
-- Event-driven messaging with NATS
-- Basic security protections such as CSRF protection, rate limiting, and security headers
+## ✨ Features
 
-## Tech Stack
+### Authentication & Security
+- JWT-based authentication
+- Password hashing
+- CSRF protection
+- Rate limiting
+- Secure HTTP headers
+- Encrypted cache storage
 
-- Go
-- Gin Web Framework
-- GORM + PostgreSQL
-- Redis
-- NATS JetStream
-- Gorilla WebSocket
-- JWT authentication
-- Docker / Docker Compose
+### Real-Time Communication
+- WebSocket-based messaging
+- Real-time chat rooms
+- Event-driven message processing
+- Asynchronous communication with NATS JetStream
 
-## Project Structure
+### Data Management
+- PostgreSQL for persistent storage
+- Redis for caching and fast data access
+- Message history storage
+- Repository abstraction layer
 
-- cmd/server: application entrypoint
-- internal/configs: environment and configuration loading
-- internal/core: domain models and application services
-- internal/adapters: HTTP handlers, WebSocket handlers, repositories, and external integrations
-- pkg: shared helpers such as logging, hashing, and encryption
-- templates: HTML templates for the web UI
+### Architecture
+- Hexagonal Architecture
+- Clean separation of:
+  - Domain logic
+  - Application services
+  - Infrastructure adapters
+- Dependency inversion principles
 
-## Features
+---
 
-- Secure authentication with JWT
-- Session-based CSRF protection
-- Rate limiting and security headers
-- WebSocket-based chat communication
-- Persistent message storage
-- Encrypted Redis cache support
+# 🛠 Tech Stack
 
-## Prerequisites
+| Technology | Purpose |
+|------------|---------|
+| Go | Backend language |
+| Gin | HTTP framework |
+| PostgreSQL | Primary database |
+| GORM | ORM |
+| Redis | Cache layer |
+| NATS JetStream | Event streaming |
+| Gorilla WebSocket | Real-time communication |
+| JWT | Authentication |
+| Docker | Containerization |
+| Docker Compose | Local development environment |
 
-Before running the project, make sure you have:
+---
 
-- Go 1.26 or newer
-- Docker and Docker Compose
-- A working terminal environment
+# 📁 Project Structure
 
-## Environment Variables
+```
+├── cmd
+│   └── server
+│       └── main.go
+├── docker-compose.yml
+├── Dockerfile
+├── go.mod
+├── go.sum
+├── internal
+│   ├── adapters
+│   │   ├── primary
+│   │   │   ├── http
+│   │   │   │   ├── dto
+│   │   │   │   │   ├── request.go
+│   │   │   │   │   └── response.go
+│   │   │   │   ├── handlers
+│   │   │   │   │   ├── auth.go
+│   │   │   │   │   ├── room.go
+│   │   │   │   │   └── user.go
+│   │   │   │   ├── middlewares
+│   │   │   │   │   ├── auth.go
+│   │   │   │   │   ├── csrf.go
+│   │   │   │   │   ├── rate.go
+│   │   │   │   │   └── security.go
+│   │   │   │   └── routes
+│   │   │   │       └── routes.go
+│   │   │   └── websocket
+│   │   │       ├── client.go
+│   │   │       ├── handler.go
+│   │   │       ├── hub.go
+│   │   │       └── message.go
+│   │   └── secondary
+│   │       ├── auth
+│   │       │   └── jwt_service.go
+│   │       ├── nats
+│   │       │   └── client.go
+│   │       ├── postgres
+│   │       │   ├── chat_repository.go
+│   │       │   ├── db.go
+│   │       │   ├── message_repository.go
+│   │       │   ├── migrations
+│   │       │   │   ├── migrate.go
+│   │       │   │   └── schema.sql
+│   │       │   └── user_repository.go
+│   │       └── redis
+│   │           ├── cache.go
+│   │           ├── client.go
+│   │           └── encryptedCache.go
+│   ├── configs
+│   │   ├── config.go
+│   │   └── load.go
+│   └── core
+│       ├── application
+│       │   ├── chat
+│       │   │   ├── chat_service.go
+│       │   │   └── pubsub.go
+│       │   ├── message
+│       │   │   └── message_service.go
+│       │   └── user
+│       │       └── user-service.go
+│       ├── domain
+│       │   ├── auth
+│       │   │   └── auth.go
+│       │   ├── chat
+│       │   │   ├── entity.go
+│       │   │   └── event.go
+│       │   ├── message
+│       │   │   ├── entity.go
+│       │   │   └── pubsubmessage.go
+│       │   └── user
+│       │       └── entity.go
+│       └── ports
+│           ├── broker.go
+│           ├── cache.go
+│           ├── chat.go
+│           ├── chat_repository.go
+│           ├── message.go
+│           ├── message_repository.go
+│           ├── token.go
+│           ├── user.go
+│           └── user_repository.go
+├── pkg
+│   ├── encryption.go
+│   ├── logger.go
+│   ├── passhasher.go
+│   └── validator.go
+├── README.md
+└── templates
+    ├── chat.html
+    ├── error.html
+    ├── login.html
+    └── register.html
 
-Create a .env file in the project root with values similar to:
+```
+
+---
+# 🚀 Getting Started
+
+## Requirements
+
+Make sure you have installed:
+
+- Go 1.26+
+- Docker
+- Docker Compose
+
+---
+
+# ⚙️ Configuration
+
+Create a `.env` file in the project root:
 
 ```env
 DB_USER=postgres
@@ -61,50 +176,101 @@ DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=secure_chat_db
+
 REDIS_URL=redis://localhost:6379/0
+
 NATS_URL=nats://localhost:4222
-JWT_SECRET=your-jwt-secret
+
+JWT_SECRET=your-secret-key
 CSRF_SECRET=your-csrf-secret
-CACHE_ENCRYPTION_KEY=64-character-hex-string
-```
 
-> The application expects these values to be available when it starts.
+CACHE_ENCRYPTION_KEY=your-64-character-hex-key
+````
 
-## Running with Docker Compose
+---
 
-The easiest way to start the full stack is with Docker Compose:
+# 🐳 Run With Docker
+
+Start the complete application stack:
 
 ```bash
 docker compose up --build
 ```
 
-This will start:
+This starts:
 
-- PostgreSQL
-- Redis
-- NATS
-- The chat service on port 8080
+* PostgreSQL
+* Redis
+* NATS JetStream
+* Secure Chat API
 
-Open the app in your browser at:
+The application will be available at:
 
-```text
+```
 http://localhost:8080
 ```
 
-## Running Locally
+---
 
-If you want to run the server directly on your machine:
+# 💻 Run Locally
 
-1. Start the supporting services:
+Start infrastructure services:
 
 ```bash
-docker compose up redis postgres nats
+docker compose up postgres redis nats
 ```
 
-2. Run the application:
+Run the application:
 
 ```bash
 go run ./cmd/server
 ```
 
-# Contributation
+---
+
+
+
+# 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch
+
+```bash
+git checkout -b feature/my-feature
+```
+
+3. Commit your changes
+
+```bash
+git commit -m "Add new feature"
+```
+
+4. Push your branch
+
+```bash
+git push origin feature/my-feature
+```
+
+5. Open a Pull Request
+
+Please make sure your code follows the existing architecture and includes tests when possible.
+
+---
+
+# 📄 License
+
+This project is licensed under the MIT License.
+
+You are free to:
+
+* Use
+* Modify
+* Distribute
+* Commercialize
+
+the software under the conditions of the MIT License.
+
+See the full license text in the [LICENSE](LICENSE) file.
+
