@@ -7,34 +7,42 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 )
 
-
-func AuthMiddleware(tokenSvc ports.TokenService) gin.HandlerFunc{
+func AuthMiddleware(tokenSvc ports.TokenService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token , err := c.Cookie("Authorization")
-
+		token, err := c.Cookie("Authorization")
 		if err != nil {
-			c.Redirect(
-				http.StatusSeeOther,
-				"/login",
-			)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			c.Abort()
-			return 
+			return
 		}
-		claims , err := tokenSvc.Validate(token)
-		
+		claims, err := tokenSvc.Validate(token)
 		if err != nil {
-			c.Redirect(
-				http.StatusSeeOther,
-				"/login",
-			)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			c.Abort()
-			return 
+			return
 		}
-
-		c.Set("userID" , claims.UserID)
-		c.Set("username" , claims.Username)
+		c.Set("userID", claims.UserID)
+		c.Set("username", claims.Username)
 		c.Next()
 	}
+}
 
-
+func AuthMiddlewarePage(tokenSvc ports.TokenService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, err := c.Cookie("Authorization")
+		if err != nil {
+			c.Redirect(http.StatusSeeOther, "/login")
+			c.Abort()
+			return
+		}
+		claims, err := tokenSvc.Validate(token)
+		if err != nil {
+			c.Redirect(http.StatusSeeOther, "/login")
+			c.Abort()
+			return
+		}
+		c.Set("userID", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Next()
+	}
 }

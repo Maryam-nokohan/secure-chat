@@ -41,10 +41,9 @@ func setupProtectedRoutes(
 	userHandler *handlers.UserHandler,
 	jwtSvc ports.TokenService,
 ) {
-	protected := r.Group("/")
-	protected.Use(middlewares.AuthMiddleware(jwtSvc))
-
-	protected.GET("/chat", func(c *gin.Context) {
+	page := r.Group("/")
+	page.Use(middlewares.AuthMiddlewarePage(jwtSvc))
+	page.GET("/chat", func(c *gin.Context) {
 		username, _ := c.Get("username")
 		userID, _ := c.Get("userID")
 		c.HTML(200, "chat.html", gin.H{
@@ -54,14 +53,14 @@ func setupProtectedRoutes(
 		})
 	})
 
-	protected.GET("/ws", wsHandler.HandleWebSocket)
-
-	protected.POST("/rooms", roomHandler.CreateRoom)
-	protected.GET("/rooms", roomHandler.ListRooms)
-	protected.GET("/rooms/:id/messages", roomHandler.GetMessages)
-	protected.GET("/rooms/:id/profile", roomHandler.GetRoomProfile)
-	protected.GET("/join/:code", roomHandler.JoinByCode)
-
-	protected.GET("/profile", userHandler.GetProfile)
-	protected.GET("/users/:id", userHandler.GetUserByID)
+	api := r.Group("/")
+	api.Use(middlewares.AuthMiddleware(jwtSvc))
+	api.GET("/ws", wsHandler.HandleWebSocket)
+	api.POST("/rooms", roomHandler.CreateRoom)
+	api.GET("/rooms", roomHandler.ListRooms)
+	api.GET("/rooms/:id/messages", roomHandler.GetMessages)
+	api.GET("/rooms/:id/profile", roomHandler.GetRoomProfile)
+	api.GET("/join/:code", roomHandler.JoinByCode)
+	api.GET("/profile", userHandler.GetProfile)
+	api.GET("/users/:id", userHandler.GetUserByID)
 }
