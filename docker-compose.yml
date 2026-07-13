@@ -27,7 +27,7 @@ services:
       retries: 5
 
   nats:
-    image: nats:latest
+    image: nats:2.9.17-alpine
     container_name: secure-chat-nats
     restart: always
     command:
@@ -41,6 +41,11 @@ services:
       - "8222:8222"
     volumes:
       - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 
   app:
@@ -60,7 +65,7 @@ services:
       redis:
         condition: service_started
       nats:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:
