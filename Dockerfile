@@ -10,6 +10,7 @@ WORKDIR /app
 
 COPY --from=builder /app/secure-chat .
 COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/static ./static
 COPY --from=builder /app/internal/adapters/secondary/postgres/migrations ./internal/adapters/secondary/postgres/migrations
 
 EXPOSE 8080

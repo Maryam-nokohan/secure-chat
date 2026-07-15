@@ -71,6 +71,23 @@ CREATE TABLE IF NOT EXISTS room_reads (
     last_read_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (room_id, user_id)
 );
+-- patch messages table 
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='messages' AND column_name='nonce'
+    ) THEN
+        ALTER TABLE messages ADD COLUMN nonce VARCHAR(64) NOT NULL DEFAULT '';
+    END IF;
+END $$;
 
+-- create message_keys table
+CREATE TABLE IF NOT EXISTS message_keys (
+    message_id    UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    recipient_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    encrypted_key TEXT NOT NULL,
+    PRIMARY KEY (message_id, recipient_id)
+);
+CREATE INDEX IF NOT EXISTS idx_message_keys_recipient ON message_keys(recipient_id);
 CREATE INDEX IF NOT EXISTS idx_messages_room_id    ON messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);

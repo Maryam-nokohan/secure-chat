@@ -89,7 +89,13 @@
         background: #f8f9fa;
         cursor: not-allowed;
       }
-      .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: #0d6efd; display: inline-block; }
+      .unread-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #0d6efd;
+        display: inline-block;
+      }
     </style>
   </head>
   <body>
@@ -298,8 +304,44 @@
         </div>
       </div>
     </div>
+    <div
+      class="modal fade"
+      id="unlockModal"
+      tabindex="-1"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+    >
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title">Unlock Encryption</h6>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted">
+              Enter your password to unlock message encryption for this session.
+            </p>
+            <input
+              type="password"
+              id="unlock-password"
+              class="form-control form-control-sm"
+              placeholder="Password"
+            />
+            <div id="unlock-error" class="text-danger small mt-1 d-none"></div>
+          </div>
+          <div class="modal-footer py-2">
+            <button
+              class="btn btn-sm btn-primary w-100"
+              onclick="handleUnlock()"
+            >
+              Unlock
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/crypto-utils.js"></script>
     <script>
       const CSRF_TOKEN = "{{.csrfToken}}";
       const CURRENT_USER = "{{.username}}";
@@ -326,20 +368,20 @@
         const proto = location.protocol === "https:" ? "wss://" : "ws://";
         ws = new WebSocket(`${proto}${location.host}/ws`);
 
-     ws.onopen = () => {
-    reconnectAttempts = 0;
-    setConnStatus(true);
-    if (currentRoom) sendJoin(currentRoom);
-};
+        ws.onopen = () => {
+          reconnectAttempts = 0;
+          setConnStatus(true);
+          if (currentRoom) sendJoin(currentRoom);
+        };
 
-ws.onclose = () => {
-    setConnStatus(false);
-    roomJoinReady = false;
-    messageInput.disabled = true;
-    scheduleReconnect(); // was: setTimeout(connectWebSocket, 3000)
-};
+        ws.onclose = () => {
+          setConnStatus(false);
+          roomJoinReady = false;
+          messageInput.disabled = true;
+          scheduleReconnect(); // was: setTimeout(connectWebSocket, 3000)
+        };
 
-        ws.onmessage = ({ data }) => {
+        ws.onmessage = async ({ data }) => {
           let msg;
           try {
             msg = JSON.parse(data);
@@ -355,10 +397,9 @@ ws.onclose = () => {
                 messageInput.placeholder = "Type a message…";
               }
               break;
-
             case "message":
-              if (msg.room_id === currentRoom) appendLiveMessage(msg);
-              break;
+              if (msg.room_id === currentRoom) await appendLiveMessage(msg);
+
             case "member_joined":
               if (msg.room_id === currentRoom && currentRoomProfile) {
                 const exists = currentRoomProfile.members.some(
@@ -390,8 +431,6 @@ ws.onclose = () => {
               break;
           }
         };
-
-     
       }
 
       function sendJoin(roomID) {
@@ -403,15 +442,45 @@ ws.onclose = () => {
         }
       }
 
-      function sendMessage(e) {
+      async function sendMessage(e) {
         e.preventDefault();
         const text = messageInput.value.trim();
-        if (!text || !roomJoinReady || !currentRoom) return;
+        if (!text) return;
+        if (
+          !ws ||
+          ws.readyState !== WebSocket.OPEN ||
+          !roomJoinReady ||
+          !currentRoom
+        ) {
+          appendSystemMessage(
+            "You're offline — message not sent. Reconnecting…",
+          );
+          return;
+        }
+        if (!myPrivateKey) {
+          appendSystemMessage(
+            "Encryption is locked. Please unlock to send messages.",
+          );
+          showUnlockPrompt();
+          return;
+        }
+        if (!currentRoomProfile) return;
+
+        const { ciphertext, nonce, rawKey } = await encryptMessage(text);
+        const keys = {};
+        for (const m of currentRoomProfile.members) {
+          const pubKey = await getMemberPublicKey(m.id, m.public_key);
+          if (!pubKey) continue;
+          keys[m.id] = await encryptKeyForRecipient(rawKey, pubKey);
+        }
+
         ws.send(
           JSON.stringify({
             type: "message",
             room_id: currentRoom,
-            content: text,
+            ciphertext,
+            nonce,
+            keys,
           }),
         );
         messageInput.value = "";
@@ -443,31 +512,33 @@ ws.onclose = () => {
 
         chatBox.innerHTML = `<div class="message-system">Joining #${esc(roomName)}…</div>`;
 
-        // Join the WS room (ack enables the input)
         sendJoin(roomID);
 
-        // Load history and members in parallel
         await Promise.all([loadHistory(roomID), loadRoomProfile(roomID)]);
       }
 
       // ── API helpers ───────────────────────────────────────────────
-      async function loadHistory(roomID) {
-        try {
-          const res = await fetch(`/rooms/${roomID}/messages`);
-          if (!res.ok) return;
-          const msgs = await res.json();
-          chatBox.innerHTML = "";
-          if (!msgs.length) {
+  async function loadHistory(roomID) {
+    try {
+        const res = await fetch(`/rooms/${roomID}/messages`);
+        if (!res.ok) return;
+        const msgs = await res.json();
+        chatBox.innerHTML = "";
+        if (!msgs.length) {
             chatBox.innerHTML = `<div class="message-system">No messages yet. Say hello!</div>`;
             return;
-          }
-          // History comes newest-first; reverse for display
-          [...msgs].reverse().forEach((m) => appendHistoryMessage(m));
-          chatBox.scrollTop = chatBox.scrollHeight;
-        } catch (e) {
-          console.error(e);
         }
-      }
+        for (const m of [...msgs].reverse()) {
+            let content = "[sent before you joined this room]";
+            if (m.encrypted_key && myPrivateKey) {
+                try { content = await decryptMessage(m.ciphertext, m.nonce, m.encrypted_key, myPrivateKey); }
+                catch (e) { console.error("decrypt failed", e); content = "[unable to decrypt]"; }
+            }
+            appendHistoryMessage({ ...m, content });
+        }
+        chatBox.scrollTop = chatBox.scrollHeight;
+    } catch (e) { console.error(e); }
+}
 
       let currentRoomProfile = null;
 
@@ -538,7 +609,7 @@ ws.onclose = () => {
             document.getElementById("createRoomModal"),
           ).hide();
           document.getElementById("new-room-name").value = "";
-         addRoomToSidebar(data.id, data.name, false);
+          addRoomToSidebar(data.id, data.name, false);
           await switchRoom(data.id, data.name);
         } catch (e) {
           errEl.textContent = "Network error.";
@@ -561,7 +632,7 @@ ws.onclose = () => {
             return;
           }
           document.getElementById("invite-input").value = "";
-         addRoomToSidebar(data.id, data.name, false);
+          addRoomToSidebar(data.id, data.name, false);
           await switchRoom(data.id, data.name);
         } catch {
           alert("Network error.");
@@ -569,25 +640,23 @@ ws.onclose = () => {
       }
       let reconnectAttempts = 0;
 
-function scheduleReconnect() {
-    reconnectAttempts++;
-    const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000); // capped exponential backoff
-    document.getElementById("conn-status").innerHTML =
-        '<i class="bi bi-arrow-repeat text-warning"></i> Reconnecting…';
+      function scheduleReconnect() {
+        reconnectAttempts++;
+        const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000); // capped exponential backoff
+        document.getElementById("conn-status").innerHTML =
+          '<i class="bi bi-arrow-repeat text-warning"></i> Reconnecting…';
 
-    setTimeout(async () => {
-        try {
+        setTimeout(async () => {
+          try {
             const res = await fetch("/profile", { cache: "no-store" });
             if (res.status === 401) {
-                window.location.href = "/login"; // session truly expired
-                return;
+              window.location.href = "/login"; // session truly expired
+              return;
             }
-        } catch {
-            // fetch itself failed too — genuinely offline, not a session issue.
-        }
-        connectWebSocket();
-    }, delay);
-}
+          } catch {}
+          connectWebSocket();
+        }, delay);
+      }
 
       function addRoomToSidebar(id, name, unread) {
         const list = document.getElementById("rooms-list");
@@ -673,24 +742,26 @@ function scheduleReconnect() {
         });
       }
 
-      // ── Message rendering ─────────────────────────────────────────
-      function sendMessage(e) {
-    e.preventDefault();
-    const text = messageInput.value.trim();
-    if (!text) return;
-    if (!ws || ws.readyState !== WebSocket.OPEN || !roomJoinReady || !currentRoom) {
-        appendSystemMessage("You're offline — message not sent. Reconnecting…");
-        return;
-    }
-    ws.send(JSON.stringify({ type: "message", room_id: currentRoom, content: text }));
-    messageInput.value = "";
-}
-      function appendLiveMessage(msg) {
+      async function appendLiveMessage(msg) {
+        const myKey = msg.keys && msg.keys[CURRENT_UID];
+        let content = "[unable to decrypt]";
+        if (myKey && myPrivateKey) {
+          try {
+            content = await decryptMessage(
+              msg.ciphertext,
+              msg.nonce,
+              myKey,
+              myPrivateKey,
+            );
+          } catch (e) {
+            console.error("decrypt failed", e);
+          }
+        }
         const isSelf = msg.username === CURRENT_USER;
         chatBox.appendChild(
           bubble(
             isSelf ? "You" : msg.username,
-            msg.content,
+            content,
             isSelf,
             fmtTime(msg.time),
           ),
@@ -749,10 +820,86 @@ function scheduleReconnect() {
         );
       }
 
-      window.onload = () => {
-        connectWebSocket();
-        loadRooms();
-      };
+      window.onload = async () => {
+    await loadMyPrivateKey();
+    connectWebSocket();
+    loadRooms();
+};
+      let myPrivateKey = null;
+      const publicKeyCache = {};
+
+      async function loadMyPrivateKey() {
+        const rawB64 = sessionStorage.getItem("e2ee_privkey_pkcs8");
+        if (!rawB64) {
+          showUnlockPrompt();
+          return;
+        }
+        try {
+          myPrivateKey = await crypto.subtle.importKey(
+            "pkcs8",
+            b64decode(rawB64),
+            { name: "RSA-OAEP", hash: "SHA-256" },
+            false,
+            ["decrypt"],
+          );
+        } catch {
+          showUnlockPrompt();
+        }
+      }
+
+      function showUnlockPrompt() {
+        new bootstrap.Modal(document.getElementById("unlockModal")).show();
+      }
+
+      async function handleUnlock() {
+        const password = document.getElementById("unlock-password").value;
+        const errEl = document.getElementById("unlock-error");
+        errEl.classList.add("d-none");
+
+        const stored = loadWrappedKeypair(CURRENT_USER);
+        if (!stored) {
+          errEl.textContent =
+            "No encryption key found for this account on this device.";
+          errEl.classList.remove("d-none");
+          return;
+        }
+        try {
+          const { wrappingKey } = await deriveWrappingKey(
+            CURRENT_USER,
+            password,
+            stored.salt,
+          );
+          const rawPriv = await unwrapPrivateKeyRaw(
+            stored.wrappedPrivate,
+            stored.iv,
+            wrappingKey,
+          );
+          myPrivateKey = await crypto.subtle.importKey(
+            "pkcs8",
+            rawPriv,
+            { name: "RSA-OAEP", hash: "SHA-256" },
+            false,
+            ["decrypt"],
+          );
+          sessionStorage.setItem("e2ee_privkey_pkcs8", b64encode(rawPriv));
+          bootstrap.Modal.getInstance(
+            document.getElementById("unlockModal"),
+          ).hide();
+          if (currentRoom) await loadHistory(currentRoom);
+        } catch {
+          errEl.textContent =
+            "Wrong password, or no key for this account on this device.";
+          errEl.classList.remove("d-none");
+        }
+      }
+
+      async function getMemberPublicKey(userID, pemString) {
+        if (publicKeyCache[userID]) return publicKeyCache[userID];
+        if (!pemString) return null;
+        const key = await importPublicKeyFromPEM(pemString);
+        publicKeyCache[userID] = key;
+        return key;
+      }
     </script>
   </body>
 </html>

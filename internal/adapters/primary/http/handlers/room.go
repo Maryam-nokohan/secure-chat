@@ -126,29 +126,32 @@ func (h *RoomHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.msgSvc.GetHistory(c.Request.Context(), roomID)
+	messages, err := h.msgSvc.GetHistory(c.Request.Context(), roomID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load history"})
 		return
 	}
-
 	_ = h.chatSvc.MarkRoomRead(c.Request.Context(), roomID, userID)
 
 	type msgDTO struct {
-		ID       string `json:"id"`
-		SenderID string `json:"sender_id"`
-		Username string `json:"username"`
-		Content  string `json:"content"`
-		Time     string `json:"time"`
+		ID           string `json:"id"`
+		SenderID     string `json:"sender_id"`
+		Username     string `json:"username"`
+		Ciphertext   string `json:"ciphertext"`
+		Nonce        string `json:"nonce"`
+		EncryptedKey string `json:"encrypted_key"`
+		Time         string `json:"time"`
 	}
 	result := make([]msgDTO, len(messages))
 	for i, m := range messages {
 		result[i] = msgDTO{
-			ID:       m.ID.String(),
-			SenderID: m.SenderID.String(),
-			Username: m.SenderUsername,
-			Content:  m.Content,
-			Time:     m.CreatedAt.Format(time.RFC3339),
+			ID:           m.ID.String(),
+			SenderID:     m.SenderID.String(),
+			Username:     m.SenderUsername,
+			Ciphertext:   m.Ciphertext,
+			Nonce:        m.Nonce,
+			EncryptedKey: m.EncryptedKey,
+			Time:         m.CreatedAt.Format(time.RFC3339),
 		}
 	}
 	c.JSON(http.StatusOK, result)
@@ -188,15 +191,18 @@ func (h *RoomHandler) GetRoomProfile(c *gin.Context) {
 	online := h.hub.GetOnlineUserIDs()
 
 	type memberDTO struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
-		Online   bool   `json:"online"`
+		ID        string `json:"id"`
+		Username  string `json:"username"`
+		Online    bool   `json:"online"`
+		PublicKey string `json:"public_key"`
 	}
 	members := make([]memberDTO, len(room.Users))
 	for i, u := range room.Users {
-		members[i] = memberDTO{ID: u.ID.String(), Username: u.Username, Online: online[u.ID.String()]}
+		members[i] = memberDTO{
+			ID: u.ID.String(), Username: u.Username,
+			Online: online[u.ID.String()], PublicKey: u.PublicKey,
+		}
 	}
-
 	scheme := "http"
 	if c.Request.TLS != nil {
 		scheme = "https"

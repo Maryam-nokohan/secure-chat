@@ -20,7 +20,7 @@ type Client struct {
 	Room     string
 	Hub      *Hub
 	Broker   ports.MessageBroker
-	ChatSvc  ports.ChatServiceI // NEW: needed to authorize room joins
+	ChatSvc  ports.ChatServiceI
 }
 
 func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
@@ -52,7 +52,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 			}
 			room, err := c.ChatSvc.GetRoom(context.Background(), roomID)
 			if err != nil {
-				continue 
+				continue
 			}
 			isMember := false
 			for _, u := range room.Users {
@@ -85,24 +85,25 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 			if c.Room == "" {
 				continue
 			}
+			if incoming.Ciphertext == "" || incoming.Nonce == "" || len(incoming.Keys) == 0 {
+				continue 
+			}
 
 			roomID := uuid.FromStringOrNil(c.Room)
 			senderID := uuid.FromStringOrNil(c.ID)
 
 			saved, err := msgSvc.SaveGroupMessage(
-				context.Background(), roomID, senderID, c.Username, incoming.Content,
+				context.Background(), roomID, senderID, c.Username,
+				incoming.Ciphertext, incoming.Nonce, incoming.Keys,
 			)
 			if err != nil {
 				continue
 			}
 
 			out := message.PubSubMessage{
-				Type:     "message",
-				SenderID: c.ID,
-				Username: c.Username,
-				RoomID:   c.Room,
-				Content:  incoming.Content,
-				Time:     saved.CreatedAt.Format(time.RFC3339),
+				Type: "message", SenderID: c.ID, Username: c.Username, RoomID: c.Room,
+				Ciphertext: incoming.Ciphertext, Nonce: incoming.Nonce, Keys: incoming.Keys,
+				Time: saved.CreatedAt.Format(time.RFC3339),
 			}
 			payload, err := json.Marshal(out)
 			if err != nil {

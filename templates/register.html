@@ -27,9 +27,12 @@
 </form>
 
 <a href="/login">Login</a>
-
+<script src="/static/crypto-utils.js"></script>
 <script>
-async function generateAndStoreKeyPair() {
+let generatedPublicPEM = null;
+let generatedPrivateRaw = null;
+
+async function generateKeyPair() {
     try {
         const keyPair = await window.crypto.subtle.generateKey(
             { name: "RSA-OAEP", modulusLength: 2048,
@@ -39,22 +42,36 @@ async function generateAndStoreKeyPair() {
         );
 
         const pubRaw = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
-        const pubB64 = btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
-        const pubPEM = `-----BEGIN PUBLIC KEY-----\n${pubB64.match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
+        const pubB64 = b64encode(pubRaw);
+        generatedPublicPEM = `-----BEGIN PUBLIC KEY-----\n${pubB64.match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
+        generatedPrivateRaw = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
 
-        const privRaw = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-        const privB64 = btoa(String.fromCharCode(...new Uint8Array(privRaw)));
-        const privPEM = `-----BEGIN PRIVATE KEY-----\n${privB64.match(/.{1,64}/g).join('\n')}\n-----END PRIVATE KEY-----`;
-        localStorage.setItem("privateKey", privPEM);
-
-        document.getElementById("public_key").value = pubPEM;
+        document.getElementById("public_key").value = generatedPublicPEM;
         document.getElementById("register-btn").disabled = false;
+        document.getElementById("key-status").textContent = "Encryption keys ready.";
     } catch (e) {
         document.getElementById("key-status").textContent = "⚠ Key generation failed: " + e.message;
         document.getElementById("key-status").style.color = "red";
     }
 }
-generateAndStoreKeyPair();
+generateKeyPair();
+
+document.querySelector("form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const username = document.querySelector('input[name="username"]').value.trim();
+    const password = document.querySelector('input[name="password"]').value;
+
+    if (!generatedPrivateRaw) {
+        alert("Encryption keys are still generating, please wait a moment.");
+        return;
+    }
+
+    const { wrappingKey, saltB64 } = await deriveWrappingKey(username, password);
+    const { wrapped, iv } = await wrapPrivateKey(generatedPrivateRaw, wrappingKey);
+    saveWrappedKeypair(username, generatedPublicPEM, wrapped, iv, saltB64);
+
+    e.target.submit();
+});
 </script>
 </body>
 </html>
