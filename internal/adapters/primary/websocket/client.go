@@ -20,6 +20,7 @@ type Client struct {
 	Room     string
 	Hub      *Hub
 	Broker   ports.MessageBroker
+	ChatSvc  ports.ChatServiceI // NEW: needed to authorize room joins
 }
 
 func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
@@ -41,6 +42,36 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 
 		switch incoming.Type {
 		case "join":
+			roomID, err := uuid.FromString(incoming.RoomID)
+			if err != nil {
+				continue
+			}
+			userID, err := uuid.FromString(c.ID)
+			if err != nil {
+				continue
+			}
+			room, err := c.ChatSvc.GetRoom(context.Background(), roomID)
+			if err != nil {
+				continue 
+			}
+			isMember := false
+			for _, u := range room.Users {
+				if u.ID == userID {
+					isMember = true
+					break
+				}
+			}
+			if !isMember {
+				denied, _ := json.Marshal(map[string]string{
+					"type": "join_denied", "room_id": incoming.RoomID,
+				})
+				select {
+				case c.Send <- denied:
+				default:
+				}
+				continue
+			}
+
 			c.Hub.JoinRoom(c, incoming.RoomID)
 			ack, _ := json.Marshal(map[string]string{
 				"type": "joined", "room_id": incoming.RoomID,
@@ -80,7 +111,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 
 			if pubErr := c.Broker.Publish(context.Background(), message.ChatSubject, payload); pubErr != nil {
 				pkg.LogError(pubErr)
-				c.Hub.BroadcastToRoom(c.Room, payload) 
+				c.Hub.BroadcastToRoom(c.Room, payload)
 			}
 		}
 	}
