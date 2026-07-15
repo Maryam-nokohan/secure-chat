@@ -40,7 +40,7 @@ DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
-
+-- rooms table
 CREATE TABLE IF NOT EXISTS rooms (
     id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     name        VARCHAR(100) UNIQUE NOT NULL,
@@ -48,14 +48,14 @@ CREATE TABLE IF NOT EXISTS rooms (
     invite_code VARCHAR(32)  UNIQUE NOT NULL DEFAULT '',
     created_at  TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP
 );
-
+-- room users table
 CREATE TABLE IF NOT EXISTS room_users (
     room_id   UUID REFERENCES rooms(id) ON DELETE CASCADE,
     user_id   UUID REFERENCES users(id) ON DELETE CASCADE,
     joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (room_id, user_id)
 );
-
+-- messages table
 CREATE TABLE IF NOT EXISTS messages (
     id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     room_id         UUID        NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS messages (
     content         TEXT        NOT NULL,
     created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+-- room reads table
 CREATE TABLE IF NOT EXISTS room_reads (
     room_id      UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

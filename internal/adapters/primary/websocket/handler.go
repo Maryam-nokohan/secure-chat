@@ -10,20 +10,22 @@ import (
 )
 
 type Handler struct {
-	Hub    *Hub
-	MsgSvc ports.MessageServiceI
-	Broker ports.MessageBroker
+	Hub     *Hub
+	MsgSvc  ports.MessageServiceI
+	Broker  ports.MessageBroker
+	ChatSvc ports.ChatServiceI 
 }
 
-func NewHandler(hub *Hub, msgSvc ports.MessageServiceI, broker ports.MessageBroker) *Handler {
-	return &Handler{Hub: hub, MsgSvc: msgSvc, Broker: broker}
+func NewHandler(hub *Hub, msgSvc ports.MessageServiceI, broker ports.MessageBroker, chatSvc ports.ChatServiceI) *Handler {
+	return &Handler{Hub: hub, MsgSvc: msgSvc, Broker: broker, ChatSvc: chatSvc}
 }
 
 var Upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-}
+	CheckOrigin: func(r *http.Request) bool {
+		return true},
+	}
 
 func (h *Handler) HandleWebSocket(c *gin.Context) {
 	userID, existsID := c.Get("userID")
@@ -42,6 +44,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 	client := &Client{
 		Hub:      h.Hub,
 		Broker:   h.Broker,
+		ChatSvc:  h.ChatSvc,
 		Conn:     conn,
 		Send:     make(chan []byte, 256),
 		ID:       userID.(string),

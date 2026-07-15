@@ -80,7 +80,7 @@ func main() {
 	}
 
 	authHandler := handlers.NewAuthHandler(userSvc)
-	wsHandler := websocket.NewHandler(hub, msgSvc, broker)
+	wsHandler := websocket.NewHandler(hub, msgSvc, broker,chatSvc)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
 	userHandler := handlers.NewUserHandler(userRepo)
 
