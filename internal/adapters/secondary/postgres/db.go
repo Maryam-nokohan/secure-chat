@@ -13,42 +13,31 @@ func NewDB(cfg *configs.Config) (*gorm.DB, error) {
 	pkg.LogInfo("Connecting to database...")
 	defaultDSN := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=postgres port=%s sslmode=disable",
-		cfg.DBHost,
-		cfg.DBUser,
-		cfg.DBPassword,
-		cfg.DBPort,
+		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBPort,
 	)
 
-	tempDB, err := gorm.Open(
-		postgres.Open(defaultDSN),
-		&gorm.Config{},
-	)
+	tempDB, err := gorm.Open(postgres.Open(defaultDSN), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to connect postgres database: %w",
-			err,
-		)
+		return nil, fmt.Errorf("failed to connect postgres database: %w", err)
 	}
 
-	createDBQuery := fmt.Sprintf(
-		"CREATE DATABASE %s",
-		cfg.DBName,
-	)
-
-	err = tempDB.Exec(createDBQuery).Error
-	if err != nil {
-		fmt.Println("database probably already exists:", err)
+	var exists bool
+	checkQuery := "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = ?)"
+	if err := tempDB.Raw(checkQuery, cfg.DBName).Scan(&exists).Error; err != nil {
+		return nil, fmt.Errorf("failed to check database existence: %w", err)
 	}
 
-	db, err := gorm.Open(
-		postgres.Open(cfg.DSN),
-		&gorm.Config{},
-	)
+	if !exists {
+		createDBQuery := fmt.Sprintf("CREATE DATABASE %s", cfg.DBName)
+		if err := tempDB.Exec(createDBQuery).Error; err != nil {
+			return nil, fmt.Errorf("failed to create database: %w", err)
+		}
+		pkg.LogInfo("Database " + cfg.DBName + " created.")
+	}
+
+	db, err := gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to connect app database: %w",
-			err,
-		)
+		return nil, fmt.Errorf("failed to connect app database: %w", err)
 	}
 
 	return db, nil

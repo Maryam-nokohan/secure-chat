@@ -184,3 +184,16 @@ func (c *ChatService) MarkRoomRead(ctx context.Context, roomID, userID uuid.UUID
 func (c *ChatService) GetUnreadRoomIDs(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]bool, error) {
 	return c.chatRepo.GetUnreadRoomIDs(ctx, userID)
 }
+
+func (c *ChatService) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error) {
+	room, err := c.GetRoom(ctx, roomID)
+	if err != nil {
+		return false, err
+	}
+	for _, u := range room.Users {
+		if u.ID == userID {
+			return true, nil
+		}
+	}
+	return false, nil
+}

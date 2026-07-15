@@ -11,11 +11,14 @@ import (
 
 func Load() (*Config, error) {
 	pkg.LogInfo("Loading configuration...")
-	err := godotenv.Load()
-	if err != nil {
-		return nil, err
-	}
 
+	if err := godotenv.Load(); err != nil {
+		if os.IsNotExist(err) {
+			pkg.LogInfo(".env file not found, relying on process environment (expected in containers)")
+		} else {
+			return nil, fmt.Errorf("failed to load .env: %w", err)
+		}
+	}
 	cfg := &Config{
 	DBUser:      os.Getenv("DB_USER"),
 	DBPassword:  os.Getenv("DB_PASSWORD"),

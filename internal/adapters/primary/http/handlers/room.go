@@ -108,17 +108,32 @@ func (h *RoomHandler) GetMessages(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room id"})
 		return
 	}
+
+	userIDStr, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	isMember, err := h.chatSvc.IsMember(c.Request.Context(), roomID, userID)
+	if err != nil || !isMember {
+		c.JSON(http.StatusNotFound, gin.H{"error": "room not found"})
+		return
+	}
+
 	messages, err := h.msgSvc.GetHistory(c.Request.Context(), roomID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load history"})
 		return
 	}
 
-	if userIDStr, ok := c.Get("userID"); ok {
-		if userID, err := uuid.FromString(userIDStr.(string)); err == nil {
-			_ = h.chatSvc.MarkRoomRead(c.Request.Context(), roomID, userID)
-		}
-	}
+	_ = h.chatSvc.MarkRoomRead(c.Request.Context(), roomID, userID)
+
 	type msgDTO struct {
 		ID       string `json:"id"`
 		SenderID string `json:"sender_id"`
@@ -146,6 +161,24 @@ func (h *RoomHandler) GetRoomProfile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room id"})
 		return
 	}
+
+	userIDStr, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	isMember, err := h.chatSvc.IsMember(c.Request.Context(), roomID, userID)
+	if err != nil || !isMember {
+		c.JSON(http.StatusNotFound, gin.H{"error": "room not found"})
+		return
+	}
+
 	room, err := h.chatSvc.GetRoom(c.Request.Context(), roomID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "room not found"})
@@ -161,11 +194,7 @@ func (h *RoomHandler) GetRoomProfile(c *gin.Context) {
 	}
 	members := make([]memberDTO, len(room.Users))
 	for i, u := range room.Users {
-		members[i] = memberDTO{
-			ID:       u.ID.String(),
-			Username: u.Username,
-			Online:   online[u.ID.String()],
-		}
+		members[i] = memberDTO{ID: u.ID.String(), Username: u.Username, Online: online[u.ID.String()]}
 	}
 
 	scheme := "http"

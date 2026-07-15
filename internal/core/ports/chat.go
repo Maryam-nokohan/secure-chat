@@ -17,4 +17,5 @@ type ChatServiceI interface {
 	GetRoom(ctx context.Context, roomID uuid.UUID) (*chat.Room, error)
 	MarkRoomRead(ctx context.Context, roomID, userID uuid.UUID) error
 	GetUnreadRoomIDs(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]bool, error)
+	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
 }
