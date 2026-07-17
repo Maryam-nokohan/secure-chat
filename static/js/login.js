@@ -1,51 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login</title>
-</head>
-<body>
-
-<h1>Login</h1>
-
-{{if .error}}
-<p style="color:red;">
-    {{.error}}
-</p>
-{{end}}
-
-<form action="/login" method="POST">
-
-    <input
-        type="hidden"
-        name="_csrf"
-        value="{{.csrfToken}}"
-    >
-
-    <input
-        type="text"
-        name="username"
-        placeholder="Username"
-        required
-    >
-
-    <input
-        type="password"
-        name="password"
-        placeholder="Password"
-        required
-    >
-
-    <button type="submit">
-        Login
-    </button>
-
-</form>
-
-<a href="/register">
-    Register?
-</a>
-<script src="/static/crypto-utils.js"></script>
-<script>
 document.querySelector("form").addEventListener("submit", async function (e) {
     e.preventDefault();
     const username = document.querySelector('input[name="username"]').value.trim();
@@ -65,6 +17,3 @@ document.querySelector("form").addEventListener("submit", async function (e) {
 
     e.target.submit();
 });
-</script>
-</body>
-</html>

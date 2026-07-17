@@ -1,34 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Register</title>
-</head>
-<body>
-
-<h1>Register</h1>
-
-{{if .error}}
-<p style="color:red;">{{.error}}</p>
-{{end}}
-
-<form action="/register" method="POST">
-    <input type="hidden" name="_csrf" value="{{.csrfToken}}">
-
-    <input type="hidden" name="public_key" id="public_key">
-
-    <input type="text" name="username" placeholder="Username" required>
-    <input type="password" name="password" placeholder="Password" required
-        minlength="8"
-        pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_\-])[A-Za-z\d@$!%*?&.#_\-]{8,}$"
-        title="Min 8 chars, upper, lower, number, special">
-
-    <p id="key-status" style="color:gray;">Generating your encryption keys…</p>
-    <button type="submit" id="register-btn" disabled>Register</button>
-</form>
-
-<a href="/login">Login</a>
-<script src="/static/crypto-utils.js"></script>
-<script>
 let generatedPublicPEM = null;
 let generatedPrivateRaw = null;
 
@@ -72,6 +41,3 @@ document.querySelector("form").addEventListener("submit", async function (e) {
 
     e.target.submit();
 });
-</script>
-</body>
-</html>

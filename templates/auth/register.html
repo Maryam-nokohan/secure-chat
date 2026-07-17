@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Create Account | Secure Chat</title>
+
+<link rel="stylesheet" href="/static/css/auth.css">
+</head>
+
+<body>
+
+<div class="auth-wrapper">
+
+<div class="logo">
+
+<h1>Secure Chat</h1>
+
+<p>
+
+Create your encrypted account.
+
+</p>
+
+</div>
+
+<div class="card">
+
+<h2>Create account</h2>
+
+<p class="subtitle">
+
+Your encryption keys are generated locally before registration.
+
+</p>
+
+{{if .error}}
+
+<div class="error">
+
+{{.error}}
+
+</div>
+
+{{end}}
+
+<form action="/register" method="POST">
+
+<input
+type="hidden"
+name="_csrf"
+value="{{.csrfToken}}"
+>
+
+<input
+type="hidden"
+name="public_key"
+id="public_key"
+>
+
+<div class="form-group">
+
+<label>Username</label>
+
+<input
+type="text"
+name="username"
+required
+maxlength="40"
+autocomplete="username"
+>
+
+</div>
+
+<div class="form-group">
+
+<label>Password</label>
+
+<input
+
+type="password"
+
+name="password"
+
+required
+
+autocomplete="new-password"
+
+minlength="8"
+
+pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#_\-])[A-Za-z\d@$!%*?&.#_\-]{8,}$"
+
+title="Minimum 8 characters, uppercase, lowercase, number and special character."
+
+>
+
+</div>
+
+<p id="key-status">
+
+Generating encryption keys...
+
+</p>
+
+<button
+
+type="submit"
+
+id="register-btn"
+
+disabled
+
+>
+
+Create Account
+
+</button>
+
+</form>
+
+<div class="footer">
+
+Already have an account?
+
+<a href="/login">
+
+Sign In
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+<script src="/static/js/crypto-utils.js"></script>
+<script src="/static/js/register.js" defer></script>
+</body>
+
+</html>

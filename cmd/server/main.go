@@ -95,7 +95,7 @@ func main() {
 	r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
 
 	r.Static("/static", "./static")
-	r.LoadHTMLGlob("templates/*")
+	r.LoadHTMLGlob("templates/**/*.html")
 	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, jwtSvc)
 
 	pkg.LogInfo("Listening on :8080")
