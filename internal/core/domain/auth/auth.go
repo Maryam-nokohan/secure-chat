@@ -13,4 +13,5 @@ type AuthResult struct {
 	UserID    string
 	Username  string
 	PublicKey string
+	Email     string
 }
