@@ -1,4 +1,3 @@
-
 function b64encode(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
@@ -69,6 +68,8 @@ async function decryptMessage(ciphertextB64, nonceB64, encryptedKeyB64, myPrivat
 }
 
 function storageKeyFor(username) { return "e2ee_keypair_" + username; }
+
+function sessionKeyFor(username) { return "e2ee_privkey_pkcs8:" + username; }
 
 function saveWrappedKeypair(username, publicKeyPEM, wrappedPrivate, iv, saltB64) {
   localStorage.setItem(storageKeyFor(username), JSON.stringify({

@@ -1,4 +1,3 @@
-
 let ws;
 let currentRoom = null;
 let currentRoomName = "";
@@ -15,7 +14,7 @@ function fmtTime(iso) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// WebSocket 
+// WebSocket
 function connectWebSocket() {
   const proto = location.protocol === "https:" ? "wss://" : "ws://";
   ws = new WebSocket(`${proto}${location.host}/ws`);
@@ -32,7 +31,6 @@ function connectWebSocket() {
     messageInput.disabled = true;
     scheduleReconnect();
   };
-
   ws.onmessage = async ({ data }) => {
     let msg;
     try {
@@ -53,19 +51,9 @@ function connectWebSocket() {
         if (msg.room_id === currentRoom) await appendLiveMessage(msg);
         break;
       case "member_joined":
-        if (msg.room_id === currentRoom && currentRoomProfile) {
-          const exists = currentRoomProfile.members.some(
-            (m) => m.id === msg.user_id,
-          );
-          if (!exists) {
-            currentRoomProfile.members.push({
-              id: msg.user_id,
-              username: msg.username,
-              online: true,
-            });
-            onlineUsers[msg.user_id] = msg.username;
-            refreshMembersPanel();
-          }
+        if (msg.room_id === currentRoom) {
+
+          await loadRoomProfile(msg.room_id);
           if (msg.user_id !== CURRENT_UID) {
             appendSystemMessage(`${msg.username} joined the room`);
           }
@@ -104,9 +92,7 @@ async function sendMessage(e) {
     !roomJoinReady ||
     !currentRoom
   ) {
-    appendSystemMessage(
-      "You're offline — message not sent. Reconnecting…",
-    );
+    appendSystemMessage("You're offline — message not sent. Reconnecting…");
     return;
   }
   if (!myPrivateKey) {
@@ -116,7 +102,11 @@ async function sendMessage(e) {
     showUnlockPrompt();
     return;
   }
-  if (!currentRoomProfile) return;
+
+  if (!currentRoomProfile || currentRoomProfile.id !== currentRoom) {
+    appendSystemMessage("Still loading room info — try again in a moment.");
+    return;
+  }
 
   const { ciphertext, nonce, rawKey } = await encryptMessage(text);
   const keys = {};
@@ -144,7 +134,7 @@ function setConnStatus(online) {
     : '<i class="bi bi-circle-fill text-danger"></i> Offline';
 }
 
-// Room switching 
+// Room switching
 async function switchRoom(roomID, roomName) {
   if (currentRoom === roomID) return;
 
@@ -153,8 +143,7 @@ async function switchRoom(roomID, roomName) {
   roomJoinReady = false;
   messageInput.disabled = true;
 
-  document.getElementById("active-room-title").textContent =
-    `# ${roomName}`;
+  document.getElementById("active-room-title").textContent = `# ${roomName}`;
   document.getElementById("invite-btn").classList.remove("d-none");
   document
     .querySelectorAll(".room-item")
@@ -169,12 +158,13 @@ async function switchRoom(roomID, roomName) {
   await Promise.all([loadHistory(roomID), loadRoomProfile(roomID)]);
 }
 
-// API helpers 
+// API helpers
 async function loadHistory(roomID) {
   try {
     const res = await fetch(`/rooms/${roomID}/messages`);
     if (!res.ok) return;
     const msgs = await res.json();
+    if (roomID !== currentRoom) return;
     chatBox.innerHTML = "";
     if (!msgs.length) {
       chatBox.innerHTML = `<div class="message-system">No messages yet. Say hello!</div>`;
@@ -183,13 +173,24 @@ async function loadHistory(roomID) {
     for (const m of [...msgs].reverse()) {
       let content = "[sent before you joined this room]";
       if (m.encrypted_key && myPrivateKey) {
-        try { content = await decryptMessage(m.ciphertext, m.nonce, m.encrypted_key, myPrivateKey); }
-        catch (e) { console.error("decrypt failed", e); content = "[unable to decrypt]"; }
+        try {
+          content = await decryptMessage(
+            m.ciphertext,
+            m.nonce,
+            m.encrypted_key,
+            myPrivateKey,
+          );
+        } catch (e) {
+          console.error("decrypt failed", e);
+          content = "[unable to decrypt]";
+        }
       }
       appendHistoryMessage({ ...m, content });
     }
     chatBox.scrollTop = chatBox.scrollHeight;
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 let currentRoomProfile = null;
@@ -198,7 +199,10 @@ async function loadRoomProfile(roomID) {
   try {
     const res = await fetch(`/rooms/${roomID}/profile`);
     if (!res.ok) return;
-    currentRoomProfile = await res.json();
+    const profile = await res.json();
+
+    if (roomID !== currentRoom) return;
+    currentRoomProfile = profile;
     currentRoomProfile.members.forEach((m) => {
       if (m.online) onlineUsers[m.id] = m.username;
     });
@@ -294,7 +298,7 @@ let reconnectAttempts = 0;
 
 function scheduleReconnect() {
   reconnectAttempts++;
-  const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000); 
+  const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000);
   document.getElementById("conn-status").innerHTML =
     '<i class="bi bi-arrow-repeat text-warning"></i> Reconnecting…';
 
@@ -302,7 +306,7 @@ function scheduleReconnect() {
     try {
       const res = await fetch("/profile", { cache: "no-store" });
       if (res.status === 401) {
-        window.location.href = "/login"; 
+        window.location.href = "/login";
         return;
       }
     } catch {}
@@ -345,7 +349,7 @@ async function loadRooms() {
   }
 }
 
-// Profile modals 
+// Profile modals
 async function showProfile() {
   try {
     const res = await fetch("/profile");
@@ -353,9 +357,7 @@ async function showProfile() {
     document.getElementById("up-initial").textContent =
       data.username[0].toUpperCase();
     document.getElementById("up-username").textContent = data.username;
-    new bootstrap.Modal(
-      document.getElementById("userProfileModal"),
-    ).show();
+    new bootstrap.Modal(document.getElementById("userProfileModal")).show();
   } catch {
     alert("Failed to load profile.");
   }
@@ -363,8 +365,7 @@ async function showProfile() {
 
 function showRoomProfile() {
   if (!currentRoomProfile) return;
-  document.getElementById("rp-room-name").textContent =
-    currentRoomProfile.name;
+  document.getElementById("rp-room-name").textContent = currentRoomProfile.name;
   document.getElementById("rp-invite-url").value =
     currentRoomProfile.invite_url;
   document.getElementById("rp-copy-ok").classList.add("d-none");
@@ -410,12 +411,7 @@ async function appendLiveMessage(msg) {
   }
   const isSelf = msg.username === CURRENT_USER;
   chatBox.appendChild(
-    bubble(
-      isSelf ? "You" : msg.username,
-      content,
-      isSelf,
-      fmtTime(msg.time),
-    ),
+    bubble(isSelf ? "You" : msg.username, content, isSelf, fmtTime(msg.time)),
   );
   chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -480,7 +476,7 @@ let myPrivateKey = null;
 const publicKeyCache = {};
 
 async function loadMyPrivateKey() {
-  const rawB64 = sessionStorage.getItem("e2ee_privkey_pkcs8");
+  const rawB64 = sessionStorage.getItem(sessionKeyFor(CURRENT_USER));
   if (!rawB64) {
     showUnlockPrompt();
     return;
@@ -532,10 +528,8 @@ async function handleUnlock() {
       false,
       ["decrypt"],
     );
-    sessionStorage.setItem("e2ee_privkey_pkcs8", b64encode(rawPriv));
-    bootstrap.Modal.getInstance(
-      document.getElementById("unlockModal"),
-    ).hide();
+    sessionStorage.setItem(sessionKeyFor(CURRENT_USER), b64encode(rawPriv));
+    bootstrap.Modal.getInstance(document.getElementById("unlockModal")).hide();
     if (currentRoom) await loadHistory(currentRoom);
   } catch {
     errEl.textContent =
