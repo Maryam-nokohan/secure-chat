@@ -8,33 +8,56 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func RateLimiter() gin.HandlerFunc {
-  type client struct {
-    limiter *rate.Limiter
-  }
+type ipLimiter struct {
+	mu       sync.Mutex
+	limiters map[string]*rate.Limiter
+	r        rate.Limit
+	burst    int
+}
 
-  var (
-    mu      sync.Mutex
-    clients = make(map[string]*client)
-  )
+func newIPLimiter(r rate.Limit, burst int) *ipLimiter {
+	return &ipLimiter{
+		limiters: make(map[string]*rate.Limiter),
+		r:        r,
+		burst:    burst,
+	}
+}
 
-  return func(c *gin.Context) {
-    ip := c.ClientIP()
+func (l *ipLimiter) allow(ip string) bool {
+	l.mu.Lock()
+	lim, exists := l.limiters[ip]
+	if !exists {
+		lim = rate.NewLimiter(l.r, l.burst)
+		l.limiters[ip] = lim
+	}
+	l.mu.Unlock()
+	return lim.Allow()
+}
 
-    mu.Lock()
-    if _, exists := clients[ip]; !exists {
-      clients[ip] = &client{limiter: rate.NewLimiter(10, 20)}
-    }
-    cl := clients[ip]
-    mu.Unlock()
+func AuthRateLimiter() gin.HandlerFunc {
+	limiter := newIPLimiter(2, 10)
 
-    if !cl.limiter.Allow() {
-      c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-        "error": "rate limit exceeded",
-      })
-      return
-    }
+	return func(c *gin.Context) {
+		if !limiter.allow(c.ClientIP()) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error": "too many attempts, please slow down",
+			})
+			return
+		}
+		c.Next()
+	}
+}
 
-    c.Next()
-  }
+func APIRateLimiter() gin.HandlerFunc {
+	limiter := newIPLimiter(50, 100)
+
+	return func(c *gin.Context) {
+		if !limiter.allow(c.ClientIP()) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error": "rate limit exceeded",
+			})
+			return
+		}
+		c.Next()
+	}
 }

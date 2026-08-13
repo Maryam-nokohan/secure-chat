@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Login | Secure Chat</title>
+
+<link rel="stylesheet" href="/static/css/auth.css">
+
+</head>
+
+<body>
+
+<div class="auth-wrapper">
+
+<div class="logo">
+
+<h1>Secure Chat</h1>
+
+<p>
+Private messaging with end-to-end encryption.
+</p>
+
+</div>
+
+<div class="card">
+
+<h2>Welcome back</h2>
+
+<p class="subtitle">
+Sign in to continue.
+</p>
+
+{{if .error}}
+<div class="error">
+{{.error}}
+</div>
+{{end}}
+
+<form action="/login" method="POST">
+
+<input
+type="hidden"
+name="_csrf"
+value="{{.csrfToken}}"
+>
+
+<div class="form-group">
+
+<label>Username</label>
+
+<input
+type="text"
+name="username"
+required
+autocomplete="username"
+>
+
+</div>
+
+<div class="form-group">
+
+<label>Password</label>
+
+<input
+type="password"
+name="password"
+required
+autocomplete="current-password"
+>
+
+</div>
+
+<button type="submit">
+
+Sign In
+
+</button>
+
+</form>
+
+<div class="footer">
+
+Don't have an account?
+
+<a href="/register">
+
+Create one
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+<script src="/static/js/crypto-utils.js"></script>
+<script src="/static/js/login.js" defer></script>
+
+</body>
+
+</html>

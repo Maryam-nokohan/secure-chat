@@ -26,12 +26,14 @@ func SetupRoutes(
 func setupPublicRoutes(r *gin.Engine, authHandler *handlers.AuthHandler) {
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusMovedPermanently, "/login") })
 
-	r.GET("/login", authHandler.Login)
-	r.POST("/login", authHandler.Login)
-	r.GET("/register", authHandler.Register)
-	r.POST("/register", authHandler.Register)
-	r.GET("/logout", authHandler.Logout)
-	r.POST("/logout", authHandler.Logout)
+	auth := r.Group("/")
+	auth.Use(middlewares.AuthRateLimiter())
+	auth.GET("/login", authHandler.Login)
+	auth.POST("/login", authHandler.Login)
+	auth.GET("/register", authHandler.Register)
+	auth.POST("/register", authHandler.Register)
+	auth.GET("/logout", authHandler.Logout)
+	auth.POST("/logout", authHandler.Logout)
 }
 
 func setupProtectedRoutes(
@@ -55,6 +57,7 @@ func setupProtectedRoutes(
 
 	api := r.Group("/")
 	api.Use(middlewares.AuthMiddleware(jwtSvc))
+	api.Use(middlewares.APIRateLimiter())
 	api.GET("/ws", wsHandler.HandleWebSocket)
 	api.POST("/rooms", roomHandler.CreateRoom)
 	api.GET("/rooms", roomHandler.ListRooms)
