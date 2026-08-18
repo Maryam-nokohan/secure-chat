@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"log"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -92,7 +93,12 @@ func main() {
 	r.Use(sessions.Sessions("csrf_session", store))
 	r.Use(middlewares.SecurityHeaders())
 	r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
-
+	r.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/static/") {
+			c.Header("Cache-Control", "no-cache")
+		}
+		c.Next()
+	})
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/**/*.html")
 	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, jwtSvc)

@@ -468,9 +468,22 @@ function esc(str) {
 }
 
 window.onload = async () => {
-  await loadMyPrivateKey();
-  connectWebSocket();
-  loadRooms();
+  try {
+    await loadMyPrivateKey();
+  } catch (e) {
+    console.error("loadMyPrivateKey failed:", e);
+    showUnlockPrompt();
+  }
+  try {
+    connectWebSocket();
+  } catch (e) {
+    console.error("connectWebSocket failed:", e);
+  }
+  try {
+    await loadRooms();
+  } catch (e) {
+    console.error("loadRooms failed:", e);
+  }
 };
 let myPrivateKey = null;
 const publicKeyCache = {};
