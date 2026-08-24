@@ -168,7 +168,7 @@ Make sure you have installed:
 
 # ⚙️ Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root and fill it acording to `.env.example` file:
 
 ```env
 DB_USER=postgres
@@ -176,15 +176,13 @@ DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=secure_chat_db
-
-REDIS_URL=redis://localhost:6379/0
-
-NATS_URL=nats://localhost:4222
-
 JWT_SECRET=your-secret-key
 CSRF_SECRET=your-csrf-secret
-
+REDIS_URL=redis://localhost:6379/0
+NATS_URL=nats://localhost:4222
 CACHE_ENCRYPTION_KEY=your-64-character-hex-key
+ADMIN_BOOTSTRAP_USERNAME=admin
+ADMIN_BOOTSTRAP_PASSWORD=Admin123@
 ````
 
 ---
