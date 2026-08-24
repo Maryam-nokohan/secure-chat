@@ -59,8 +59,6 @@ services:
     environment:
       - DB_HOST=postgres
       - NATS_URL=nats://nats:4222
-      - ADMIN_BOOTSTRAP_USERNAME=admin
-      - ADMIN_BOOTSTRAP_PASSWORD=Admin123@
     depends_on:
       postgres:
         condition: service_healthy
