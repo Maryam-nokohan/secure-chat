@@ -35,9 +35,13 @@ document.querySelector("form").addEventListener("submit", async function (e) {
         return;
     }
 
-    const { wrappingKey, saltB64 } = await deriveWrappingKey(username, password);
-    const { wrapped, iv } = await wrapPrivateKey(generatedPrivateRaw, wrappingKey);
-    saveWrappedKeypair(username, generatedPublicPEM, wrapped, iv, saltB64);
+    try {
+        const { wrappingKey, saltB64 } = await deriveWrappingKey(username, password);
+        const { wrapped, iv } = await wrapPrivateKey(generatedPrivateRaw, wrappingKey);
+        saveWrappedKeypair(username, generatedPublicPEM, wrapped, iv, saltB64);
+    } catch (err) {
+        console.warn("Failed to save local encryption key (will still register):", err);
+    }
 
     e.target.submit();
 });

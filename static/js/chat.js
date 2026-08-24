@@ -52,7 +52,6 @@ function connectWebSocket() {
         break;
       case "member_joined":
         if (msg.room_id === currentRoom) {
-
           await loadRoomProfile(msg.room_id);
           if (msg.user_id !== CURRENT_UID) {
             appendSystemMessage(`${msg.username} joined the room`);
@@ -110,10 +109,17 @@ async function sendMessage(e) {
 
   const { ciphertext, nonce, rawKey } = await encryptMessage(text);
   const keys = {};
+  const failedMembers = [];
   for (const m of currentRoomProfile.members) {
     const pubKey = await getMemberPublicKey(m.id, m.public_key);
-    if (!pubKey) continue;
+    if (!pubKey) {
+      failedMembers.push(m.username);
+      continue;
+    }
     keys[m.id] = await encryptKeyForRecipient(rawKey, pubKey);
+  }
+  if (failedMembers.length) {
+    console.warn("Could not encrypt for:", failedMembers.join(", "));
   }
 
   ws.send(
