@@ -1,0 +1,7 @@
+.online-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.online-dot.online { background:#198754; }
+.online-dot.offline { background:#adb5bd; }
+.logs-box {
+  background:#0d1117; color:#c9d1d9; font-family: monospace; font-size:.75rem;
+  padding:10px; height:260px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;
+}

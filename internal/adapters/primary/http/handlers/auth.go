@@ -61,10 +61,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-    if c.Request.Method == http.MethodGet {
-        c.HTML(http.StatusOK, "login.html", gin.H{"csrfToken": csrf.GetToken(c)})
-        return
-    }
+	if c.Request.Method == http.MethodGet {
+		c.HTML(http.StatusOK, "login.html", gin.H{"csrfToken": csrf.GetToken(c)})
+		return
+	}
 	var req dto.LoginRequest
 
 	if err := c.ShouldBind(&req); err != nil {
@@ -93,17 +93,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 		return
 	}
+	c.SetCookie("Authorization", res.Token, 3600*24, "/", "", true, true)
 
-	c.SetCookie(
-		"Authorization",
-		res.Token,
-		3600*24,
-		"/",
-		"",
-		true,
-		true,
-	)
-
+	if res.Role == "admin" {
+		c.Redirect(http.StatusSeeOther, "/admin")
+		return
+	}
 	c.Redirect(http.StatusSeeOther, "/chat")
 }
 

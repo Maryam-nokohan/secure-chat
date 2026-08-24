@@ -86,3 +86,8 @@ func (r *MessageRepo) GetMessageByID(ctx context.Context, msgID uuid.UUID) (*mes
 	err := r.db.WithContext(ctx).First(&msg, "id = ?", msgID).Error
 	return &msg, err
 }
+func (r *MessageRepo) CountMessages(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&message.Message{}).Count(&count).Error
+	return count, err
+}

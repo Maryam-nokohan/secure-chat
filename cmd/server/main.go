@@ -10,6 +10,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
+	"github.com/maryam-nokohan/secure-chat/cmd/server/setup"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
@@ -20,6 +21,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
 	redisPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
 	"github.com/maryam-nokohan/secure-chat/internal/configs"
+	adminApp "github.com/maryam-nokohan/secure-chat/internal/core/application/admin"
 	chatApp "github.com/maryam-nokohan/secure-chat/internal/core/application/chat"
 	msgApp "github.com/maryam-nokohan/secure-chat/internal/core/application/message"
 	userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
@@ -79,11 +81,19 @@ func main() {
 	if err := pubSub.Start(context.Background()); err != nil {
 		pkg.LogFattal("failed to start pubsub: " + err.Error())
 	}
+		if err := setup.BootstrapAdmin(userRepo); err != nil {
+		pkg.LogError(err)
+	}
+
+	adminSvc := adminApp.NewService(userRepo, chatRepo, msgRepo, func() int {
+		return len(hub.GetOnlineUserIDs())
+	})
 
 	authHandler := handlers.NewAuthHandler(userSvc)
 	wsHandler := websocket.NewHandler(hub, msgSvc, broker, chatSvc)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
 	userHandler := handlers.NewUserHandler(userRepo)
+	adminHandler := handlers.NewAdminHandler(adminSvc, hub)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
@@ -101,7 +111,7 @@ func main() {
 	})
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/**/*.html")
-	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, jwtSvc)
+	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler,adminHandler, jwtSvc)
 
 	pkg.LogInfo("Listening on :8080")
 	log.Fatal(r.Run(":8080"))

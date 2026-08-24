@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"io"
 	"log"
 	"os"
 )
@@ -15,13 +16,13 @@ var (
 )
 
 func Init() {
-	InfoLogger = log.New(os.Stdout, "[INFO:]", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(os.Stdout, "[ERROR:]", log.Ldate|log.Ltime|log.Lshortfile)
-	RepoInfo = log.New(os.Stdout, "[INFO::Repo]", log.Ldate|log.Ltime|log.Lshortfile)
-	RepoError = log.New(os.Stdout, "[ERROR:Repo]", log.Ldate|log.Ltime|log.Lshortfile)
-	HttpInfo = log.New(os.Stdout, "[INFO::HTTP]", log.Ldate|log.Ltime|log.Lshortfile)
-	HttpError = log.New(os.Stdout, "[ERROR:HTTP]", log.Ldate|log.Ltime|log.Lshortfile)
-
+	out := io.MultiWriter(os.Stdout, recentLogs)
+	InfoLogger = log.New(out, "[INFO:]", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLogger = log.New(out, "[ERROR:]", log.Ldate|log.Ltime|log.Lshortfile)
+	RepoInfo = log.New(out, "[INFO::Repo]", log.Ldate|log.Ltime|log.Lshortfile)
+	RepoError = log.New(out, "[ERROR:Repo]", log.Ldate|log.Ltime|log.Lshortfile)
+	HttpInfo = log.New(out, "[INFO::HTTP]", log.Ldate|log.Ltime|log.Lshortfile)
+	HttpError = log.New(out, "[ERROR:HTTP]", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func LogInfo(message string) {

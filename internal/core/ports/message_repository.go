@@ -14,4 +14,5 @@ type MessageRepository interface {
 	GetMessageKeysForUser(ctx context.Context, messageIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]string, error)
 	DeleteMessage(ctx context.Context, msgID uuid.UUID) error
 	EditMessage(ctx context.Context, msgID uuid.UUID, ciphertext, nonce string, keys []message.MessageKey) error
+	CountMessages(ctx context.Context) (int64, error)
 }

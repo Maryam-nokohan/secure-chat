@@ -92,3 +92,24 @@ func (r *UserRepository) DeleteUser(ctx context.Context, u user.User) error {
 	_ = r.cache.Delete(ctx, userNameKey(u.Username))
 	return nil
 }
+func (r *UserRepository) ListUsers(ctx context.Context, limit, offset int) ([]user.User, error) {
+	var users []user.User
+	err := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit).Offset(offset).Find(&users).Error
+	return users, err
+}
+
+func (r *UserRepository) CountUsers(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&user.User{}).Count(&count).Error
+	return count, err
+}
+
+func (r *UserRepository) RestoreUser(ctx context.Context, id uuid.UUID) error {
+	err := r.db.WithContext(ctx).Unscoped().Model(&user.User{}).
+		Where("id = ?", id).Update("deleted_at", nil).Error
+	if err != nil {
+		return err
+	}
+	_ = r.cache.Delete(ctx, userIDKey(id))
+	return nil
+}

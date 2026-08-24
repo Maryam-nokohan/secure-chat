@@ -22,7 +22,6 @@ func NewUserService(
 	repo ports.UserRepository,
 	tokenSvc ports.TokenService,
 ) ports.UserServicesI {
-
 	pkg.LogInfo("Init UserService...")
 
 	return &UserService{
@@ -37,7 +36,6 @@ func (s *UserService) Register(
 	password string,
 	publicKey string,
 ) (*auth.AuthResult, error) {
-
 	username := strings.TrimSpace(name)
 
 	if username == "" {
@@ -74,6 +72,7 @@ func (s *UserService) Register(
 		Username:  username,
 		PassHash:  hash,
 		PublicKey: publicKey,
+		Role:      "user",
 	}
 
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
@@ -81,11 +80,7 @@ func (s *UserService) Register(
 		return nil, err
 	}
 
-	token, err := s.tokenSvc.Generate(
-		userID.String(),
-		username,
-	)
-
+	token, err := s.tokenSvc.Generate(userID.String(), username, newUser.Role)
 	if err != nil {
 		pkg.LogError(err)
 		return nil, err
@@ -98,6 +93,7 @@ func (s *UserService) Register(
 		UserID:    userID.String(),
 		Username:  username,
 		PublicKey: publicKey,
+		Role:      newUser.Role,
 	}, nil
 }
 
@@ -106,7 +102,6 @@ func (s *UserService) Login(
 	username string,
 	password string,
 ) (*auth.AuthResult, error) {
-
 	u, err := s.repo.FindUserByUsername(ctx, strings.TrimSpace(username))
 	if err != nil {
 		return nil, errors.New("invalid credentials")
@@ -116,11 +111,7 @@ func (s *UserService) Login(
 		return nil, errors.New("invalid credentials")
 	}
 
-	token, err := s.tokenSvc.Generate(
-		u.ID.String(),
-		u.Username,
-	)
-
+	token, err := s.tokenSvc.Generate(u.ID.String(), u.Username, u.Role)
 	if err != nil {
 		pkg.LogError(err)
 		return nil, err
@@ -131,5 +122,6 @@ func (s *UserService) Login(
 		UserID:    u.ID.String(),
 		Username:  u.Username,
 		PublicKey: u.PublicKey,
+		Role:      u.Role,
 	}, nil
 }

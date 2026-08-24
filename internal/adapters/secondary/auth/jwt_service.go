@@ -20,14 +20,13 @@ func NewJWTService(secret string) ports.TokenService {
 		secret: secret,
 	}
 }
-
-func (j *JWTService) Generate(userID, username string) (string, error) {
-
+func (j *JWTService) Generate(userID, username, role string) (string, error) {
 	now := time.Now()
 
 	claims := auth.Claims{
 		UserID:   userID,
 		Username: username,
+		Role:     role,
 
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
@@ -37,11 +36,7 @@ func (j *JWTService) Generate(userID, username string) (string, error) {
 		},
 	}
 
-	token := jwt.NewWithClaims(
-		jwt.SigningMethodHS256,
-		claims,
-	)
-
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(j.secret))
 }
 

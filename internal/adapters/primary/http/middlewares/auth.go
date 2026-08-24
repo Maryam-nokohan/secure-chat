@@ -23,6 +23,7 @@ func AuthMiddleware(tokenSvc ports.TokenService) gin.HandlerFunc {
 		}
 		c.Set("userID", claims.UserID)
 		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
 		c.Next()
 	}
 }
@@ -43,6 +44,7 @@ func AuthMiddlewarePage(tokenSvc ports.TokenService) gin.HandlerFunc {
 		}
 		c.Set("userID", claims.UserID)
 		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
 		c.Next()
 	}
 }

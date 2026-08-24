@@ -4,13 +4,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: secure-chat-redis
-    restart: always
+    restart: unless-stopped
     ports:
       - "6379:6379"
   postgres:
     image: postgres:16
     container_name: secure-chat-db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -41,10 +41,11 @@ services:
     volumes:
       - nats_data:/data
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/jsz"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
 
   app:
@@ -58,6 +59,8 @@ services:
     environment:
       - DB_HOST=postgres
       - NATS_URL=nats://nats:4222
+      - ADMIN_BOOTSTRAP_USERNAME=admin
+      - ADMIN_BOOTSTRAP_PASSWORD=Admin123@
     depends_on:
       postgres:
         condition: service_healthy

@@ -118,3 +118,8 @@ func (r *ChatRepository) GetUnreadRoomIDs(ctx context.Context, userID uuid.UUID)
 	}
 	return set, nil
 }
+func (r *ChatRepository) CountRooms(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&chat.Room{}).Count(&count).Error
+	return count, err
+}

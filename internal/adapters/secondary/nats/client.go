@@ -24,6 +24,7 @@ func NewNATS(url string) (ports.MessageBroker, error) {
 	conn, err := nats.Connect(
 		url,
 		nats.Name("secure-chat"),
+		nats.Timeout(10*time.Second),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2*time.Second),
@@ -40,17 +41,31 @@ func NewNATS(url string) (ports.MessageBroker, error) {
 		return nil, err
 	}
 
-	js, err := conn.JetStream()
+	js, err := conn.JetStream(nats.MaxWait(10 * time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get JetStream context: %w", err)
 	}
 
-	if err := ensureStream(js); err != nil {
+	if err := ensureStreamWithRetry(js); err != nil {
 		return nil, fmt.Errorf("failed to ensure JetStream stream: %w", err)
 	}
 
 	pkg.LogInfo("NATS JetStream ready — stream " + streamName + " is persisting subjects chat.>")
 	return &Client{conn: conn, js: js}, nil
+}
+
+func ensureStreamWithRetry(js nats.JetStreamContext) error {
+	var lastErr error
+	for i := 0; i < 10; i++ {
+		if err := ensureStream(js); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			pkg.LogInfo(fmt.Sprintf("JetStream not ready yet (attempt %d/10): %v", i+1, err))
+			time.Sleep(2 * time.Second)
+		}
+	}
+	return lastErr
 }
 
 func ensureStream(js nats.JetStreamContext) error {

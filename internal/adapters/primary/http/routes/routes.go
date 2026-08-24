@@ -17,10 +17,12 @@ func SetupRoutes(
 	wsHandler *websocket.Handler,
 	roomHandler *handlers.RoomHandler,
 	userHandler *handlers.UserHandler,
+	adminHandler *handlers.AdminHandler,
 	jwtSvc ports.TokenService,
 ) {
 	setupPublicRoutes(r, authHandler)
 	setupProtectedRoutes(r, wsHandler, roomHandler, userHandler, jwtSvc)
+	setupAdminRoutes(r, adminHandler, jwtSvc)
 }
 
 func setupPublicRoutes(r *gin.Engine, authHandler *handlers.AuthHandler) {
@@ -66,4 +68,31 @@ func setupProtectedRoutes(
 	api.GET("/join/:code", roomHandler.JoinByCode)
 	api.GET("/profile", userHandler.GetProfile)
 	api.GET("/users/:id", userHandler.GetUserByID)
+}
+
+func setupAdminRoutes(r *gin.Engine, adminHandler *handlers.AdminHandler, jwtSvc ports.TokenService) {
+	page := r.Group("/")
+	page.Use(middlewares.AuthMiddlewarePage(jwtSvc))
+	page.Use(middlewares.RequireAdminPage())
+	page.GET("/admin", func(c *gin.Context) {
+		username, _ := c.Get("username")
+		c.HTML(200, "admin.html", gin.H{
+			"username":  username,
+			"csrfToken": csrf.GetToken(c),
+		})
+	})
+
+	api := r.Group("/admin/api")
+	api.Use(middlewares.AuthMiddleware(jwtSvc))
+	api.Use(middlewares.RequireAdmin())
+	api.Use(middlewares.APIRateLimiter())
+	api.GET("/users", adminHandler.ListUsers)
+	api.PUT("/users/:id", adminHandler.EditUser)
+	api.DELETE("/users/:id", adminHandler.DeleteUser)
+	api.POST("/users/:id/role", adminHandler.SetRole)
+	api.POST("/users", adminHandler.CreateAdmin)
+	api.POST("/undo", adminHandler.Undo)
+	api.GET("/history", adminHandler.History)
+	api.GET("/stats", adminHandler.Stats)
+	api.GET("/logs", adminHandler.Logs)
 }
