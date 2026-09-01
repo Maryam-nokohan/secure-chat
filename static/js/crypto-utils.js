@@ -44,6 +44,12 @@ async function importPublicKeyFromPEM(pem) {
   );
 }
 
+async function importPrivateKeyFromRawB64(rawB64) {
+  return crypto.subtle.importKey(
+    "pkcs8", b64decode(rawB64), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]
+  );
+}
+
 async function encryptMessage(plaintext) {
   const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -69,8 +75,6 @@ async function decryptMessage(ciphertextB64, nonceB64, encryptedKeyB64, myPrivat
 
 function storageKeyFor(username) { return "e2ee_keypair_" + username; }
 
-function sessionKeyFor(username) { return "e2ee_privkey_pkcs8:" + username; }
-
 function saveWrappedKeypair(username, publicKeyPEM, wrappedPrivate, iv, saltB64) {
   localStorage.setItem(storageKeyFor(username), JSON.stringify({
     publicKeyPEM, wrappedPrivate, iv, salt: saltB64,
@@ -80,4 +84,32 @@ function saveWrappedKeypair(username, publicKeyPEM, wrappedPrivate, iv, saltB64)
 function loadWrappedKeypair(username) {
   const raw = localStorage.getItem(storageKeyFor(username));
   return raw ? JSON.parse(raw) : null;
+}
+
+function privateKeyStorageFor(username) { return "e2ee_privkey_raw:" + username; }
+
+function saveRawPrivateKey(username, rawB64) {
+  localStorage.setItem(privateKeyStorageFor(username), rawB64);
+}
+
+function loadRawPrivateKey(username) {
+  return localStorage.getItem(privateKeyStorageFor(username));
+}
+
+function clearRawPrivateKey(username) {
+  localStorage.removeItem(privateKeyStorageFor(username));
+}
+
+function pendingPasswordKeyFor(username) { return "e2ee_pending_pw:" + username; }
+
+function savePendingPassword(username, password) {
+  sessionStorage.setItem(pendingPasswordKeyFor(username), password);
+}
+
+function getPendingPassword(username) {
+  return sessionStorage.getItem(pendingPasswordKeyFor(username));
+}
+
+function clearPendingPassword(username) {
+  sessionStorage.removeItem(pendingPasswordKeyFor(username));
 }

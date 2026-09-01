@@ -35,19 +35,24 @@ func (s *UserService) Register(
 	name string,
 	password string,
 	publicKey string,
+	wrappedPrivateKey string,
+	privateKeyIV string,
+	privateKeySalt string,
 ) (*auth.AuthResult, error) {
 	username := strings.TrimSpace(name)
 
 	if username == "" {
 		return nil, errors.New("username is required")
 	}
-
 	if err := pkg.ValidatePassword(password); err != nil {
 		return nil, err
 	}
-
 	if err := pkg.ValidateRSAPublicKey(publicKey); err != nil {
 		return nil, err
+	}
+	// This is the fix for the silent-failure bug: no key backup, no account.
+	if wrappedPrivateKey == "" || privateKeyIV == "" || privateKeySalt == "" {
+		return nil, errors.New("encryption key could not be generated on your device; please retry registration")
 	}
 
 	existingUser, err := s.repo.FindUserByUsername(ctx, username)
@@ -68,11 +73,14 @@ func (s *UserService) Register(
 	}
 
 	newUser := user.User{
-		ID:        userID,
-		Username:  username,
-		PassHash:  hash,
-		PublicKey: publicKey,
-		Role:      "user",
+		ID:                userID,
+		Username:          username,
+		PassHash:          hash,
+		PublicKey:         publicKey,
+		WrappedPrivateKey: wrappedPrivateKey,
+		PrivateKeyIV:      privateKeyIV,
+		PrivateKeySalt:    privateKeySalt,
+		Role:              "user",
 	}
 
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
@@ -89,14 +97,10 @@ func (s *UserService) Register(
 	pkg.LogInfo("User registered successfully: " + username)
 
 	return &auth.AuthResult{
-		Token:     token,
-		UserID:    userID.String(),
-		Username:  username,
-		PublicKey: publicKey,
-		Role:      newUser.Role,
+		Token: token, UserID: userID.String(), Username: username,
+		PublicKey: publicKey, Role: newUser.Role,
 	}, nil
 }
-
 func (s *UserService) Login(
 	ctx context.Context,
 	username string,

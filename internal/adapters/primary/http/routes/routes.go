@@ -68,6 +68,8 @@ func setupProtectedRoutes(
 	api.GET("/join/:code", roomHandler.JoinByCode)
 	api.GET("/profile", userHandler.GetProfile)
 	api.GET("/users/:id", userHandler.GetUserByID)
+	api.PUT("/profile/public-key", userHandler.RotatePublicKey)
+	api.GET("/profile/encryption-key", userHandler.GetEncryptionKeyBackup)
 }
 
 func setupAdminRoutes(r *gin.Engine, adminHandler *handlers.AdminHandler, jwtSvc ports.TokenService) {

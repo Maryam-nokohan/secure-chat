@@ -5,17 +5,15 @@ type SendMessageWSRequest struct {
 	Text       string `json:"text"`
 }
 
-type RegisterRequest struct{
-	Username string `form:"username"`
-	Password string `form:"password"`
-	PublicKey string `form:"public_key"`
+type RegisterRequest struct {
+	Username          string `form:"username"`
+	Password          string `form:"password"`
+	PublicKey         string `form:"public_key"`
+	WrappedPrivateKey string `form:"wrapped_private_key"`
+	PrivateKeyIV      string `form:"private_key_iv"`
+	PrivateKeySalt    string `form:"private_key_salt"`
 }
 type LoginRequest struct{
 	Username string `form:"username"`
 	Password string `form:"password"`
 }
-type roomDTO struct {
-		ID     string `json:"id"`
-		Name   string `json:"name"`
-		Unread bool   `json:"unread"`
-	}

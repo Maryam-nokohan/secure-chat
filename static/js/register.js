@@ -24,7 +24,6 @@ async function generateKeyPair() {
     }
 }
 generateKeyPair();
-
 document.querySelector("form").addEventListener("submit", async function (e) {
     e.preventDefault();
     const username = document.querySelector('input[name="username"]').value.trim();
@@ -38,9 +37,23 @@ document.querySelector("form").addEventListener("submit", async function (e) {
     try {
         const { wrappingKey, saltB64 } = await deriveWrappingKey(username, password);
         const { wrapped, iv } = await wrapPrivateKey(generatedPrivateRaw, wrappingKey);
+
+        document.getElementById("wrapped_private_key").value = wrapped;
+        document.getElementById("private_key_iv").value = iv;
+        document.getElementById("private_key_salt").value = saltB64;
+
         saveWrappedKeypair(username, generatedPublicPEM, wrapped, iv, saltB64);
+
+        if (!loadWrappedKeypair(username)) {
+            throw new Error("key not persisted locally");
+        }
     } catch (err) {
-        console.warn("Failed to save local encryption key (will still register):", err);
+        console.error("Failed to prepare encryption key:", err);
+        alert(
+            "Your encryption key could not be created on this device, so registration was cancelled.\n" +
+            "Make sure this browser allows local storage (not blocked/private mode) and try again."
+        );
+        return; 
     }
 
     e.target.submit();

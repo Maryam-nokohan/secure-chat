@@ -95,11 +95,9 @@ async function sendMessage(e) {
     return;
   }
   if (!myPrivateKey) {
-    appendSystemMessage(
-      "Encryption is locked. Please unlock to send messages.",
-    );
-    showUnlockPrompt();
-    return;
+    appendSystemMessage("Setting up encryption — trying again…");
+    await loadMyPrivateKey();
+    if (!myPrivateKey) return;
   }
 
   if (!currentRoomProfile || currentRoomProfile.id !== currentRoom) {
@@ -472,13 +470,11 @@ function esc(str) {
       })[t] || t,
   );
 }
-
 window.onload = async () => {
   try {
     await loadMyPrivateKey();
   } catch (e) {
     console.error("loadMyPrivateKey failed:", e);
-    showUnlockPrompt();
   }
   try {
     connectWebSocket();
@@ -491,45 +487,41 @@ window.onload = async () => {
     console.error("loadRooms failed:", e);
   }
 };
+
 let myPrivateKey = null;
 const publicKeyCache = {};
 
 async function loadMyPrivateKey() {
-  const rawB64 = sessionStorage.getItem(sessionKeyFor(CURRENT_USER));
-  if (!rawB64) {
-    showUnlockPrompt();
+  const rawB64 = loadRawPrivateKey(CURRENT_USER);
+  if (rawB64) {
+    myPrivateKey = await importPrivateKeyFromRawB64(rawB64);
     return;
   }
-  try {
-    myPrivateKey = await crypto.subtle.importKey(
-      "pkcs8",
-      b64decode(rawB64),
-      { name: "RSA-OAEP", hash: "SHA-256" },
-      false,
-      ["decrypt"],
-    );
-  } catch {
-    showUnlockPrompt();
-  }
-}
 
-function showUnlockPrompt() {
-  new bootstrap.Modal(document.getElementById("unlockModal")).show();
-}
-
-async function handleUnlock() {
-  const password = document.getElementById("unlock-password").value;
-  const errEl = document.getElementById("unlock-error");
-  errEl.classList.add("d-none");
-
-  const stored = loadWrappedKeypair(CURRENT_USER);
-  if (!stored) {
-    errEl.textContent =
-      "No encryption key found for this account on this device.";
-    errEl.classList.remove("d-none");
+  const password = getPendingPassword(CURRENT_USER);
+  if (!password) {
+    window.location.href = "/logout";
     return;
   }
+
   try {
+    let stored = loadWrappedKeypair(CURRENT_USER);
+    if (!stored) {
+      const backup = await getEncryptionKeyBackup();
+      stored = {
+        publicKeyPEM: backup.public_key,
+        wrappedPrivate: backup.wrapped_private_key,
+        iv: backup.private_key_iv,
+        salt: backup.private_key_salt,
+      };
+      saveWrappedKeypair(
+        CURRENT_USER,
+        stored.publicKeyPEM,
+        stored.wrappedPrivate,
+        stored.iv,
+        stored.salt,
+      );
+    }
     const { wrappingKey } = await deriveWrappingKey(
       CURRENT_USER,
       password,
@@ -547,14 +539,25 @@ async function handleUnlock() {
       false,
       ["decrypt"],
     );
-    sessionStorage.setItem(sessionKeyFor(CURRENT_USER), b64encode(rawPriv));
-    bootstrap.Modal.getInstance(document.getElementById("unlockModal")).hide();
-    if (currentRoom) await loadHistory(currentRoom);
-  } catch {
-    errEl.textContent =
-      "Wrong password, or no key for this account on this device.";
-    errEl.classList.remove("d-none");
+    saveRawPrivateKey(CURRENT_USER, b64encode(rawPriv));
+  } catch (err) {
+    console.error("Failed to recover encryption key from server backup:", err);
+    window.location.href = "/logout";
+    return;
+  } finally {
+    clearPendingPassword(CURRENT_USER);
   }
+}
+
+async function getEncryptionKeyBackup() {
+  const response = await fetch("/profile/encryption-key", {
+    method: "GET",
+    credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error("no backup available");
+  const data = await response.json();
+  if (!data.wrapped_private_key) throw new Error("no backup stored");
+  return data;
 }
 
 async function getMemberPublicKey(userID, pemString) {

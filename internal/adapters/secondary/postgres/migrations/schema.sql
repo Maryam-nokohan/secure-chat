@@ -160,6 +160,33 @@ DO $$ BEGIN
     END IF;
 END $$;
 
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='wrapped_private_key'
+    ) THEN
+        ALTER TABLE users ADD COLUMN wrapped_private_key TEXT NOT NULL DEFAULT '';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='private_key_iv'
+    ) THEN
+        ALTER TABLE users ADD COLUMN private_key_iv VARCHAR(64) NOT NULL DEFAULT '';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='private_key_salt'
+    ) THEN
+        ALTER TABLE users ADD COLUMN private_key_salt VARCHAR(64) NOT NULL DEFAULT '';
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_users_role       ON users(role);
 

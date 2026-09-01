@@ -7,6 +7,6 @@ import (
 )
 
 type UserServicesI interface {
-	Register(ctx context.Context, username, password string , publickey string) (*auth.AuthResult, error)
+	Register(ctx context.Context, username, password, publicKey, wrappedPrivateKey, privateKeyIV, privateKeySalt string) (*auth.AuthResult, error)
 	Login(ctx context.Context, username, password string) (*auth.AuthResult, error)
 }
