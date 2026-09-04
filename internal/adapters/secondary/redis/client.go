@@ -28,3 +28,7 @@ func NewRedis(addr string) *Client {
 
 	return &Client{RDB: rdb}
 }
+
+func (c *Client) Close() error {
+	return c.RDB.Close()
+}

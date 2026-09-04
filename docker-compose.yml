@@ -55,6 +55,7 @@ services:
     environment:
       - DB_HOST=postgres
       - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
