@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"log"
+	"errors"
+	"net/http"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -31,6 +35,9 @@ import (
 func main() {
 	pkg.Init()
 	pkg.LogInfo("Starting server...")
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	cfg, err := configs.Load()
 	if err != nil {
@@ -68,7 +75,6 @@ func main() {
 	if err != nil {
 		pkg.LogFattal("failed to connect to NATS: " + err.Error())
 	}
-	defer broker.Close()
 
 	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
 	userSvc := userApp.NewUserService(userRepo, jwtSvc)
@@ -78,7 +84,7 @@ func main() {
 	go hub.Run()
 
 	pubSub := chatApp.NewPubSubService(broker, hub)
-	if err := pubSub.Start(context.Background()); err != nil {
+	if err := pubSub.Start(ctx); err != nil {
 		pkg.LogFattal("failed to start pubsub: " + err.Error())
 	}
 		if err := setup.BootstrapAdmin(userRepo); err != nil {
@@ -113,6 +119,40 @@ func main() {
 	r.LoadHTMLGlob("templates/**/*.html")
 	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler,adminHandler, jwtSvc)
 
-	pkg.LogInfo("Listening on :8080")
-	log.Fatal(r.Run(":8080"))
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r,
+	}
+
+	go func() {
+		pkg.LogInfo("Listening on :8080")
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			pkg.LogFattal("server error: " + err.Error())
+		}
+	}()
+
+	<-ctx.Done()
+	stop()
+	pkg.LogInfo("Shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		pkg.LogError(err)
+	}
+
+	broker.Close()
+
+	if sqlDB, err := db.DB(); err != nil {
+		pkg.LogError(err)
+	} else if err := sqlDB.Close(); err != nil {
+		pkg.LogError(err)
+	}
+
+	if err := rdb.Close(); err != nil {
+		pkg.LogError(err)
+	}
+
+	pkg.LogInfo("Shutdown complete.")
 }
