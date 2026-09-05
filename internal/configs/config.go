@@ -14,4 +14,8 @@ type Config struct {
 	JWTSecret          string
 	CSRFSecrete        string
 	CacheEncryptionKey string
+
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleCallbackURL  string
 }
