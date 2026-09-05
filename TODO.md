@@ -2,7 +2,7 @@
 
 ## Backend
 
-* [ ] Add OAuth authentication to registration & login
+* [x] Add OAuth authentication to registration & login
 * [ ] Add voice messages
 * [ ] Add voice calls
 * [ ] Add video calls
