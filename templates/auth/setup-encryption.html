@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Set Up Encryption</title>
+</head>
+<body>
+  <h1>Set up encryption</h1>
+  <p>
+    You're signed in with Google. Choose a password to protect your chat
+    encryption key. This password stays on your device — it is never sent
+    to the server.
+  </p>
+
+  {{if .error}}
+  <p style="color:red">{{.error}}</p>
+  {{end}}
+
+  <form action="/setup-encryption" method="POST">
+    <input type="hidden" name="_csrf" value="{{.csrfToken}}" />
+    <input type="hidden" name="public_key" id="public_key" />
+    <input type="hidden" name="wrapped_private_key" id="wrapped_private_key" />
+    <input type="hidden" name="private_key_iv" id="private_key_iv" />
+    <input type="hidden" name="private_key_salt" id="private_key_salt" />
+
+    <label>Password: <input type="password" id="password" required minlength="8" /></label>
+
+    <p id="key-status">Generating encryption keys...</p>
+    <button type="submit" id="submit-btn" disabled>Finish setup</button>
+  </form>
+
+  <script src="/static/js/crypto-utils.js"></script>
+  <script>
+    window.CURRENT_USER = "{{.username}}";
+  </script>
+  <script src="/static/js/setup-encryption.js" defer></script>
+</body>
+</html>

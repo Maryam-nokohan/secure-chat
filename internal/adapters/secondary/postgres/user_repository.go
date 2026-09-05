@@ -113,3 +113,21 @@ func (r *UserRepository) RestoreUser(ctx context.Context, id uuid.UUID) error {
 	_ = r.cache.Delete(ctx, userIDKey(id))
 	return nil
 }
+func providerKey(provider, providerID string) string { return "user:oauth:" + provider + ":" + providerID }
+
+func (r *UserRepository) FindUserByProvider(ctx context.Context, provider, providerID string) (*user.User, error) {
+	var u user.User
+	if err := r.db.WithContext(ctx).
+		Where("provider = ? AND provider_id = ?", provider, providerID).
+		First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+func (r *UserRepository) FindUserByEmail(ctx context.Context, email string) (*user.User, error) {
+	var u user.User
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
