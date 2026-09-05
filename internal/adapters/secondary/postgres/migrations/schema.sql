@@ -187,6 +187,38 @@ DO $$ BEGIN
     END IF;
 END $$;
 
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='email'
+    ) THEN
+        ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT '';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='provider'
+    ) THEN
+        ALTER TABLE users ADD COLUMN provider VARCHAR(20) DEFAULT '';
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='provider_id'
+    ) THEN
+        ALTER TABLE users ADD COLUMN provider_id VARCHAR(255) DEFAULT '';
+    END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
+    ON users (email) WHERE email <> '';
+CREATE INDEX IF NOT EXISTS idx_users_provider_id ON users(provider_id);
+ALTER TABLE users ALTER COLUMN passhash DROP NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_users_role       ON users(role);
 
