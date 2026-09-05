@@ -10,15 +10,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-contrib/sessions"
+	gSession "github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/sessions"
+	"github.com/markbates/goth/gothic"
 
 	"github.com/maryam-nokohan/secure-chat/cmd/server/setup"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
+	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
 	jwtSvcPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
 	natsPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/nats"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
@@ -76,6 +79,16 @@ func main() {
 		pkg.LogFattal("failed to connect to NATS: " + err.Error())
 	}
 
+	store := sessions.NewCookieStore([]byte(cfg.JWTSecret))
+	store.MaxAge(int(12 * time.Hour / time.Second))
+	store.Options.Path = "/"
+	store.Options.HttpOnly = true
+	store.Options.Secure = false // setup true in product...
+	store.Options.SameSite = http.SameSiteLaxMode
+
+	gothic.Store = store
+	oauthSvc := auth.NewGothOAuthService(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleCallbackURL)
+
 	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
 	userSvc := userApp.NewUserService(userRepo, jwtSvc)
 	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, cache, broker)
@@ -87,7 +100,7 @@ func main() {
 	if err := pubSub.Start(ctx); err != nil {
 		pkg.LogFattal("failed to start pubsub: " + err.Error())
 	}
-		if err := setup.BootstrapAdmin(userRepo); err != nil {
+	if err := setup.BootstrapAdmin(userRepo); err != nil {
 		pkg.LogError(err)
 	}
 
@@ -95,7 +108,7 @@ func main() {
 		return len(hub.GetOnlineUserIDs())
 	})
 
-	authHandler := handlers.NewAuthHandler(userSvc)
+	authHandler := handlers.NewAuthHandler(userSvc , oauthSvc)
 	wsHandler := websocket.NewHandler(hub, msgSvc, broker, chatSvc)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
 	userHandler := handlers.NewUserHandler(userRepo)
@@ -105,8 +118,8 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
-	store := cookie.NewStore([]byte(cfg.CSRFSecrete))
-	r.Use(sessions.Sessions("csrf_session", store))
+	gstore := cookie.NewStore([]byte(cfg.CSRFSecrete))
+	r.Use(gSession.Sessions("csrf_session", gstore))
 	r.Use(middlewares.SecurityHeaders())
 	r.Use(middlewares.CSRFMiddleware(cfg.CSRFSecrete))
 	r.Use(func(c *gin.Context) {
@@ -117,7 +130,7 @@ func main() {
 	})
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/**/*.html")
-	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler,adminHandler, jwtSvc)
+	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, adminHandler, jwtSvc , userSvc)
 
 	srv := &http.Server{
 		Addr:    ":8080",
