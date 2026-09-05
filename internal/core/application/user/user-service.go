@@ -2,7 +2,10 @@ package user
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gofrs/uuid"
@@ -50,7 +53,6 @@ func (s *UserService) Register(
 	if err := pkg.ValidateRSAPublicKey(publicKey); err != nil {
 		return nil, err
 	}
-	// This is the fix for the silent-failure bug: no key backup, no account.
 	if wrappedPrivateKey == "" || privateKeyIV == "" || privateKeySalt == "" {
 		return nil, errors.New("encryption key could not be generated on your device; please retry registration")
 	}
@@ -101,6 +103,7 @@ func (s *UserService) Register(
 		PublicKey: publicKey, Role: newUser.Role,
 	}, nil
 }
+
 func (s *UserService) Login(
 	ctx context.Context,
 	username string,
@@ -128,4 +131,109 @@ func (s *UserService) Login(
 		PublicKey: u.PublicKey,
 		Role:      u.Role,
 	}, nil
+}
+
+func (s *UserService) FindOrCreateOAuthUser(ctx context.Context, info auth.UserInfo, provider string) (*auth.AuthResult, bool, bool, error) {
+	if info.ProviderID == "" {
+		return nil, false, false, errors.New("oauth provider returned no subject id")
+	}
+
+	if existing, err := s.repo.FindUserByProvider(ctx, provider, info.ProviderID); err == nil && existing != nil {
+		token, err := s.tokenSvc.Generate(existing.ID.String(), existing.Username, existing.Role)
+		if err != nil {
+			return nil, false, false, err
+		}
+		needsKeys := existing.PublicKey == "" || existing.WrappedPrivateKey == ""
+		return &auth.AuthResult{
+			Token: token, UserID: existing.ID.String(), Username: existing.Username,
+			PublicKey: existing.PublicKey, Role: existing.Role,
+		}, false, needsKeys, nil
+	}
+	if info.Email != "" {
+	if byEmail, err := s.repo.FindUserByEmail(ctx, info.Email); err == nil && byEmail != nil {
+		return nil, false, false, errors.New("an account with this email already exists; please log in with your original method")
+	}
+}
+
+	username, err := s.uniqueUsernameFromEmail(ctx, info.Email, info.ProviderID)
+	if err != nil {
+		return nil, false, false, err
+	}
+
+	userID, err := uuid.NewV4()
+	if err != nil {
+		return nil, false, false, err
+	}
+
+	newUser := user.User{
+		ID:         userID,
+		Username:   username,
+		Email:      info.Email,
+		Provider:   provider,
+		ProviderID: info.ProviderID,
+		Role:       "user",
+	}
+	if err := s.repo.CreateUser(ctx, newUser); err != nil {
+		pkg.LogError(err)
+		return nil, false, false, err
+	}
+
+	token, err := s.tokenSvc.Generate(userID.String(), username, newUser.Role)
+	if err != nil {
+		return nil, false, false, err
+	}
+
+	pkg.LogInfo("OAuth user provisioned: " + username + " via " + provider)
+
+	return &auth.AuthResult{
+		Token: token, UserID: userID.String(), Username: username, Role: newUser.Role,
+	}, true, true, nil
+}
+func (s *UserService) SetupEncryptionKeys(ctx context.Context, userIDStr, publicKey, wrappedPrivateKey, privateKeyIV, privateKeySalt string) error {
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		return errors.New("invalid user id")
+	}
+	u, err := s.repo.FindUserByID(ctx, userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if u.PublicKey != "" {
+		return errors.New("encryption keys already configured")
+	}
+	if err := pkg.ValidateRSAPublicKey(publicKey); err != nil {
+		return err
+	}
+	if wrappedPrivateKey == "" || privateKeyIV == "" || privateKeySalt == "" {
+		return errors.New("encryption key could not be generated on your device; please retry")
+	}
+
+	u.PublicKey = publicKey
+	u.WrappedPrivateKey = wrappedPrivateKey
+	u.PrivateKeyIV = privateKeyIV
+	u.PrivateKeySalt = privateKeySalt
+
+	return s.repo.EditUser(ctx, *u)
+}
+
+func (s *UserService) uniqueUsernameFromEmail(ctx context.Context, email, providerID string) (string, error) {
+	base := email
+	if at := strings.IndexByte(base, '@'); at > 0 {
+		base = base[:at]
+	}
+	if base == "" {
+		base = "user"
+	}
+	candidate := base
+	for i := 0; i < 5; i++ {
+		if _, err := s.repo.FindUserByUsername(ctx, candidate); err != nil {
+			return candidate, nil
+		}
+		suffix := make([]byte, 3)
+		if _, err := rand.Read(suffix); err != nil {
+			return "", err
+		}
+		candidate = fmt.Sprintf("%s_%s", base, hex.EncodeToString(suffix))
+	}
+	return "", errors.New("could not allocate a unique username, please try again")
 }
