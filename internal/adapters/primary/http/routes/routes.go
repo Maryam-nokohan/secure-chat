@@ -19,9 +19,10 @@ func SetupRoutes(
 	userHandler *handlers.UserHandler,
 	adminHandler *handlers.AdminHandler,
 	jwtSvc ports.TokenService,
+	userSvc ports.UserServicesI,
 ) {
 	setupPublicRoutes(r, authHandler)
-	setupProtectedRoutes(r, wsHandler, roomHandler, userHandler, jwtSvc)
+	setupProtectedRoutes(r, wsHandler, roomHandler, userHandler, jwtSvc , userSvc)
 	setupAdminRoutes(r, adminHandler, jwtSvc)
 }
 
@@ -36,6 +37,9 @@ func setupPublicRoutes(r *gin.Engine, authHandler *handlers.AuthHandler) {
 	auth.POST("/register", authHandler.Register)
 	auth.GET("/logout", authHandler.Logout)
 	auth.POST("/logout", authHandler.Logout)
+
+	auth.GET("/auth/google", authHandler.GoogleBegin)
+	auth.GET("/auth/google/callback", authHandler.GoogleCallback)
 }
 
 func setupProtectedRoutes(
@@ -44,6 +48,7 @@ func setupProtectedRoutes(
 	roomHandler *handlers.RoomHandler,
 	userHandler *handlers.UserHandler,
 	jwtSvc ports.TokenService,
+	userSvc ports.UserServicesI,
 ) {
 	page := r.Group("/")
 	page.Use(middlewares.AuthMiddlewarePage(jwtSvc))
@@ -56,6 +61,8 @@ func setupProtectedRoutes(
 			"csrfToken": csrf.GetToken(c),
 		})
 	})
+	page.GET("/setup-encryption", userHandler.SetupEncryptionPage)
+page.POST("/setup-encryption", func(c *gin.Context) { userHandler.SetupEncryptionSubmit(c, userSvc) })
 
 	api := r.Group("/")
 	api.Use(middlewares.AuthMiddleware(jwtSvc))

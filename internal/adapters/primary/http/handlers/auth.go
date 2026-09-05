@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	csrf "github.com/utrack/gin-csrf"
@@ -12,11 +13,12 @@ import (
 )
 
 type AuthHandler struct {
-	svc ports.UserServicesI
+	svc      ports.UserServicesI
+	oauthSvc ports.OAuthService
 }
 
-func NewAuthHandler(svc ports.UserServicesI) *AuthHandler {
-	return &AuthHandler{svc: svc}
+func NewAuthHandler(svc ports.UserServicesI, oauthSvc ports.OAuthService) *AuthHandler {
+	return &AuthHandler{svc: svc, oauthSvc: oauthSvc}
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -118,4 +120,36 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	)
 
 	c.Redirect(http.StatusSeeOther, "/login")
+}
+
+func (h *AuthHandler) GoogleBegin(c *gin.Context) {
+	h.oauthSvc.BeginAuth(c.Writer, c.Request, "google")
+}
+
+func (h *AuthHandler) GoogleCallback(c *gin.Context) {
+	info, err := h.oauthSvc.CompleteAuth(c.Writer, c.Request, "google")
+	if err != nil {
+		pkg.LogHttpError(err)
+		c.Redirect(http.StatusSeeOther, "/login?error=oauth_failed")
+		return
+	}
+
+	result, _, needsKeys, err := h.svc.FindOrCreateOAuthUser(c.Request.Context(), *info, "google")
+	if err != nil {
+		pkg.LogHttpError(err)
+		c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape(err.Error()))
+		return
+	}
+
+	c.SetCookie("Authorization", result.Token, 3600*24, "/", "", true, true)
+
+	if needsKeys {
+		c.Redirect(http.StatusSeeOther, "/setup-encryption")
+		return
+	}
+	if result.Role == "admin" {
+		c.Redirect(http.StatusSeeOther, "/admin")
+		return
+	}
+	c.Redirect(http.StatusSeeOther, "/chat")
 }
