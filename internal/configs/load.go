@@ -32,6 +32,12 @@ func Load() (*Config, error) {
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleCallbackURL:  os.Getenv("GOOGLE_CALLBACK_URL"),
 		CacheEncryptionKey: os.Getenv("CACHE_ENCRYPTION_KEY"),
+		S3Bucket:           os.Getenv("STORAGE_S3_BUCKET"),
+		S3Region:           os.Getenv("STORAGE_S3_REGION"),
+		S3AccessKeyID:      os.Getenv("STORAGE_S3_ACCESS_KEY_ID"),
+		S3SecretAccessKey:  os.Getenv("STORAGE_S3_SECRET_ACCESS_KEY"),
+		S3Endpoint:         os.Getenv("STORAGE_S3_ENDPOINT"),
+		S3UsePathStyle:     os.Getenv("STORAGE_S3_USE_PATH_STYLE") == "true",
 	}
 
 	cfg.DSN = fmt.Sprintf(

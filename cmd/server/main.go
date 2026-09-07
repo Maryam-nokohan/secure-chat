@@ -22,14 +22,15 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
-	jwtSvcPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
 	natsPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/nats"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
 	redisPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/redis"
+	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/s3storage"
 	"github.com/maryam-nokohan/secure-chat/internal/configs"
 	adminApp "github.com/maryam-nokohan/secure-chat/internal/core/application/admin"
 	chatApp "github.com/maryam-nokohan/secure-chat/internal/core/application/chat"
+	contactApp "github.com/maryam-nokohan/secure-chat/internal/core/application/contact"
 	msgApp "github.com/maryam-nokohan/secure-chat/internal/core/application/message"
 	userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
 	"github.com/maryam-nokohan/secure-chat/pkg"
@@ -48,6 +49,9 @@ func main() {
 	}
 	db, err := postgres.NewDB(cfg)
 	if err != nil {
+		pkg.LogFattal(err.Error())
+	}
+	if err = migrations.RunMigrations(db); err != nil {
 		pkg.LogFattal(err.Error())
 	}
 	if err = migrations.RunMigrations(db); err != nil {
@@ -89,10 +93,28 @@ func main() {
 	gothic.Store = store
 	oauthSvc := auth.NewGothOAuthService(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleCallbackURL)
 
-	jwtSvc := jwtSvcPkg.NewJWTService(cfg.JWTSecret)
+	jwtSvc := auth.NewJWTService(cfg.JWTSecret)
 	userSvc := userApp.NewUserService(userRepo, jwtSvc)
 	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, cache, broker)
 	msgSvc := msgApp.NewMessageService(msgRepo, userRepo, cache)
+
+	contactRepo := postgres.NewContactRepository(db)
+	contactSvc := contactApp.NewService(contactRepo, userRepo, chatSvc)
+
+	fileStorage, err := s3storage.New(ctx, s3storage.Config{
+		Region:          cfg.S3Region,
+		Bucket:          cfg.S3Bucket,
+		AccessKeyID:     cfg.S3AccessKeyID,
+		SecretAccessKey: cfg.S3SecretAccessKey,
+		Endpoint:        cfg.S3Endpoint,
+		UsePathStyle:    cfg.S3UsePathStyle,
+	})
+	if err != nil {
+		pkg.LogFattal("failed to initialize S3 storage: " + err.Error())
+	}
+
+	attachmentRepo := postgres.NewAttachmentRepository(db)
+
 	hub := websocket.NewHub()
 	go hub.Run()
 
@@ -107,8 +129,10 @@ func main() {
 	adminSvc := adminApp.NewService(userRepo, chatRepo, msgRepo, func() int {
 		return len(hub.GetOnlineUserIDs())
 	})
-
-	authHandler := handlers.NewAuthHandler(userSvc , oauthSvc)
+	attachmentHandler := handlers.NewAttachmentHandler(chatSvc, attachmentRepo, fileStorage)
+	settingsHandler := handlers.NewSettingsHandler(userRepo, fileStorage)
+	contactHandler := handlers.NewContactHandler(contactSvc)
+	authHandler := handlers.NewAuthHandler(userSvc, oauthSvc)
 	wsHandler := websocket.NewHandler(hub, msgSvc, broker, chatSvc)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
 	userHandler := handlers.NewUserHandler(userRepo)
@@ -130,8 +154,7 @@ func main() {
 	})
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/**/*.html")
-	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, adminHandler, jwtSvc , userSvc)
-
+	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, adminHandler, contactHandler, settingsHandler, jwtSvc, userSvc , attachmentHandler)
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: r,

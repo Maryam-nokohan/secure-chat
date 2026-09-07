@@ -131,3 +131,10 @@ func (r *UserRepository) FindUserByEmail(ctx context.Context, email string) (*us
 	}
 	return &u, nil
 }
+func (r *UserRepository) FindUserByPublicID(ctx context.Context, publicID string) (*user.User, error) {
+	var u user.User
+	if err := r.db.WithContext(ctx).Where("public_id = ?", publicID).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}

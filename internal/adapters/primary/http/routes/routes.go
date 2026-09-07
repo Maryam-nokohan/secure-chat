@@ -18,11 +18,14 @@ func SetupRoutes(
 	roomHandler *handlers.RoomHandler,
 	userHandler *handlers.UserHandler,
 	adminHandler *handlers.AdminHandler,
+	contactHandler *handlers.ContactHandler,
+	settingsHandler *handlers.SettingsHandler,
 	jwtSvc ports.TokenService,
 	userSvc ports.UserServicesI,
+	attachmentHandler *handlers.AttachmentHandler,
 ) {
 	setupPublicRoutes(r, authHandler)
-	setupProtectedRoutes(r, wsHandler, roomHandler, userHandler, jwtSvc , userSvc)
+	setupProtectedRoutes(r, wsHandler, roomHandler, userHandler, contactHandler, settingsHandler, jwtSvc, userSvc, attachmentHandler)
 	setupAdminRoutes(r, adminHandler, jwtSvc)
 }
 
@@ -47,8 +50,11 @@ func setupProtectedRoutes(
 	wsHandler *websocket.Handler,
 	roomHandler *handlers.RoomHandler,
 	userHandler *handlers.UserHandler,
+	contactHandler *handlers.ContactHandler,
+	settingsHandler *handlers.SettingsHandler,
 	jwtSvc ports.TokenService,
 	userSvc ports.UserServicesI,
+	attachmentHandler *handlers.AttachmentHandler,
 ) {
 	page := r.Group("/")
 	page.Use(middlewares.AuthMiddlewarePage(jwtSvc))
@@ -56,13 +62,18 @@ func setupProtectedRoutes(
 		username, _ := c.Get("username")
 		userID, _ := c.Get("userID")
 		c.HTML(200, "chat.html", gin.H{
-			"username":  username,
-			"userID":    userID,
-			"csrfToken": csrf.GetToken(c),
+			"username": username, "userID": userID, "csrfToken": csrf.GetToken(c),
+		})
+	})
+	page.GET("/settings", func(c *gin.Context) {
+		username, _ := c.Get("username")
+		userID, _ := c.Get("userID")
+		c.HTML(200, "settings.html", gin.H{
+			"username": username, "userID": userID, "csrfToken": csrf.GetToken(c),
 		})
 	})
 	page.GET("/setup-encryption", userHandler.SetupEncryptionPage)
-page.POST("/setup-encryption", func(c *gin.Context) { userHandler.SetupEncryptionSubmit(c, userSvc) })
+	page.POST("/setup-encryption", func(c *gin.Context) { userHandler.SetupEncryptionSubmit(c, userSvc) })
 
 	api := r.Group("/")
 	api.Use(middlewares.AuthMiddleware(jwtSvc))
@@ -77,6 +88,18 @@ page.POST("/setup-encryption", func(c *gin.Context) { userHandler.SetupEncryptio
 	api.GET("/users/:id", userHandler.GetUserByID)
 	api.PUT("/profile/public-key", userHandler.RotatePublicKey)
 	api.GET("/profile/encryption-key", userHandler.GetEncryptionKeyBackup)
+
+	api.POST("/contacts", contactHandler.SendRequest)
+	api.GET("/contacts", contactHandler.List)
+	api.POST("/contacts/:id/accept", contactHandler.Accept)
+	api.POST("/contacts/:id/decline", contactHandler.Decline)
+	api.POST("/contacts/:id/block", contactHandler.Block)
+
+	api.PUT("/settings/profile", settingsHandler.UpdateProfile)
+	api.POST("/settings/avatar", settingsHandler.UploadAvatar)
+	api.GET("/avatar/:id", settingsHandler.ServeAvatar)
+	api.POST("/rooms/:id/attachments", attachmentHandler.Upload)
+	api.GET("/rooms/:id/attachments/:attachmentId", attachmentHandler.Download)
 }
 
 func setupAdminRoutes(r *gin.Engine, adminHandler *handlers.AdminHandler, jwtSvc ports.TokenService) {

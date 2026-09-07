@@ -346,8 +346,9 @@ async function loadRooms() {
     const res = await fetch("/rooms");
     if (!res.ok) return;
     const rooms = await res.json();
-    rooms.forEach((r) => addRoomToSidebar(r.id, r.name, r.unread));
-    if (rooms.length) await switchRoom(rooms[0].id, rooms[0].name);
+    const groups = rooms.filter((r) => !r.is_direct);
+    groups.forEach((r) => addRoomToSidebar(r.id, r.name, r.unread));
+    if (groups.length) await switchRoom(groups[0].id, groups[0].name);
   } catch (e) {
     console.error(e);
   }
@@ -366,6 +367,27 @@ async function showProfile() {
     alert("Failed to load profile.");
   }
 }
+
+document.getElementById("file-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || !currentRoom) return;
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/rooms/${currentRoom}/attachments`, {
+    method: "POST",
+    headers: { "X-CSRF-Token": CSRF_TOKEN },
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    appendSystemMessage(data.error || "Upload failed.");
+    return;
+  }
+  await sendEncryptedText(
+    `[[file:${data.id}:${data.content_type}:${file.name}]]`,
+  );
+});
 
 function showRoomProfile() {
   if (!currentRoomProfile) return;
@@ -480,6 +502,11 @@ window.onload = async () => {
     connectWebSocket();
   } catch (e) {
     console.error("connectWebSocket failed:", e);
+  }
+  try {
+    await loadContacts();
+  } catch (e) {
+    console.error("loadContacts failed:", e);
   }
   try {
     await loadRooms();

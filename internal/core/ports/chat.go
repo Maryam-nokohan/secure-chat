@@ -18,4 +18,5 @@ type ChatServiceI interface {
 	MarkRoomRead(ctx context.Context, roomID, userID uuid.UUID) error
 	GetUnreadRoomIDs(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]bool, error)
 	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
+	CreateDirectRoom(ctx context.Context, userA, userB uuid.UUID) (*chat.Room, error)
 }

@@ -12,6 +12,7 @@ type UserRepository interface {
 	FindUserByID(ctx context.Context, id uuid.UUID) (*user.User, error)
 	FindUserByUsername(ctx context.Context, username string) (*user.User, error)
 	FindUserByProvider(ctx context.Context, provider, providerID string) (*user.User, error)
+	FindUserByPublicID(ctx context.Context, publicID string) (*user.User, error)
 	EditUser(ctx context.Context, user user.User) error
 	DeleteUser(ctx context.Context, user user.User) error
 

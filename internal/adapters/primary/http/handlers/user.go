@@ -22,9 +22,23 @@ func NewUserHandler(userRepo ports.UserRepository) *UserHandler {
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userIDStr, _ := c.Get("userID")
 	username, _ := c.Get("username")
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
+		return
+	}
+	u, err := h.userRepo.FindUserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	avatarURL := ""
+	if u.AvatarPath != "" {
+		avatarURL = "/avatar/" + u.AvatarPath
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":       userIDStr,
-		"username": username,
+		"id": userIDStr, "username": username, "bio": u.Bio,
+		"public_id": u.PublicID, "avatar_url": avatarURL,
 	})
 }
 

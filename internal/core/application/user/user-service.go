@@ -73,6 +73,10 @@ func (s *UserService) Register(
 		pkg.LogError(err)
 		return nil, err
 	}
+	publicID, err := s.generateUniquePublicID(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	newUser := user.User{
 		ID:                userID,
@@ -83,6 +87,7 @@ func (s *UserService) Register(
 		PrivateKeyIV:      privateKeyIV,
 		PrivateKeySalt:    privateKeySalt,
 		Role:              "user",
+		PublicID:          publicID,
 	}
 
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
@@ -150,10 +155,10 @@ func (s *UserService) FindOrCreateOAuthUser(ctx context.Context, info auth.UserI
 		}, false, needsKeys, nil
 	}
 	if info.Email != "" {
-	if byEmail, err := s.repo.FindUserByEmail(ctx, info.Email); err == nil && byEmail != nil {
-		return nil, false, false, errors.New("an account with this email already exists; please log in with your original method")
+		if byEmail, err := s.repo.FindUserByEmail(ctx, info.Email); err == nil && byEmail != nil {
+			return nil, false, false, errors.New("an account with this email already exists; please log in with your original method")
+		}
 	}
-}
 
 	username, err := s.uniqueUsernameFromEmail(ctx, info.Email, info.ProviderID)
 	if err != nil {
@@ -164,10 +169,15 @@ func (s *UserService) FindOrCreateOAuthUser(ctx context.Context, info auth.UserI
 	if err != nil {
 		return nil, false, false, err
 	}
+	publicID, err := s.generateUniquePublicID(ctx)
+	if err != nil {
+		return nil,false, false, err
+	}
 
 	newUser := user.User{
 		ID:         userID,
 		Username:   username,
+		PublicID:   publicID,
 		Email:      info.Email,
 		Provider:   provider,
 		ProviderID: info.ProviderID,
@@ -189,6 +199,7 @@ func (s *UserService) FindOrCreateOAuthUser(ctx context.Context, info auth.UserI
 		Token: token, UserID: userID.String(), Username: username, Role: newUser.Role,
 	}, true, true, nil
 }
+
 func (s *UserService) SetupEncryptionKeys(ctx context.Context, userIDStr, publicKey, wrappedPrivateKey, privateKeyIV, privateKeySalt string) error {
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
@@ -236,4 +247,18 @@ func (s *UserService) uniqueUsernameFromEmail(ctx context.Context, email, provid
 		candidate = fmt.Sprintf("%s_%s", base, hex.EncodeToString(suffix))
 	}
 	return "", errors.New("could not allocate a unique username, please try again")
+}
+
+func (s *UserService) generateUniquePublicID(ctx context.Context) (string, error) {
+	for i := 0; i < 5; i++ {
+		b := make([]byte, 6)
+		if _, err := rand.Read(b); err != nil {
+			return "", err
+		}
+		candidate := strings.ToUpper(hex.EncodeToString(b))
+		if _, err := s.repo.FindUserByPublicID(ctx, candidate); err != nil {
+			return candidate, nil
+		}
+	}
+	return "", errors.New("could not allocate a unique contact id, please try again")
 }
