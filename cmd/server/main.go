@@ -107,6 +107,7 @@ func main() {
 		AccessKeyID:     cfg.S3AccessKeyID,
 		SecretAccessKey: cfg.S3SecretAccessKey,
 		Endpoint:        cfg.S3Endpoint,
+		PublicEndpoint:  cfg.S3PublicEndpoint,
 		UsePathStyle:    cfg.S3UsePathStyle,
 	})
 	if err != nil {
@@ -154,7 +155,7 @@ func main() {
 	})
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/**/*.html")
-	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, adminHandler, contactHandler, settingsHandler, jwtSvc, userSvc , attachmentHandler)
+	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, adminHandler, contactHandler, settingsHandler, jwtSvc, userSvc, attachmentHandler)
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: r,

@@ -44,26 +44,6 @@ services:
       retries: 10
       start_period: 10s
 
-  app:
-    build: .
-    container_name: secure-chat-app
-    restart: always
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    environment:
-      - DB_HOST=postgres
-      - NATS_URL=nats://nats:4222
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      nats:
-        condition: service_healthy
-
   minio:
     image: minio/minio:RELEASE.2025-04-08T15-41-24Z
     container_name: secure-chat-minio
@@ -94,6 +74,28 @@ services:
       mc alias set local http://minio:9000 minioadmin minioadmin &&
       mc mb -p local/secure-chat-test || true
       "
+
+  app:
+    build: .
+    container_name: secure-chat-app
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
 volumes:
   minio_data:
