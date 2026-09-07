@@ -24,5 +24,6 @@ type Config struct {
 	S3AccessKeyID     string
 	S3SecretAccessKey string
 	S3Endpoint        string 
+	S3PublicEndpoint  string
 	S3UsePathStyle    bool
 }

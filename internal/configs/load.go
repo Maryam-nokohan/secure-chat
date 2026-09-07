@@ -38,6 +38,7 @@ func Load() (*Config, error) {
 		S3SecretAccessKey:  os.Getenv("STORAGE_S3_SECRET_ACCESS_KEY"),
 		S3Endpoint:         os.Getenv("STORAGE_S3_ENDPOINT"),
 		S3UsePathStyle:     os.Getenv("STORAGE_S3_USE_PATH_STYLE") == "true",
+		S3PublicEndpoint:   os.Getenv("STORAGE_S3_PUBLIC_ENDPOINT"),
 	}
 
 	cfg.DSN = fmt.Sprintf(

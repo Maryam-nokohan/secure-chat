@@ -1,4 +1,3 @@
-// internal/adapters/secondary/s3Storage/storage.go
 package s3storage
 
 import (
@@ -22,20 +21,25 @@ import (
 type Config struct {
 	Region          string
 	Bucket          string
-	AccessKeyID     string // leave empty in prod, use an IAM role instead
+	AccessKeyID     string
 	SecretAccessKey string
-	Endpoint        string // set for MinIO/test env only
-	UsePathStyle    bool   // required by MinIO and most S3-compatible stores
+	Endpoint        string
+	PublicEndpoint  string
+	UsePathStyle    bool
 }
+
+var (
+	safeSegment  = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	safeFilename = regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
+	safePath     = regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`)
+)
+
 
 type Storage struct {
 	client  *s3.Client
 	presign *s3.PresignClient
 	bucket  string
 }
-
-var safeSegment = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
-var safePath = regexp.MustCompile(`^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$`)
 
 func New(ctx context.Context, cfg Config) (ports.FileStorage, error) {
 	if cfg.Bucket == "" || cfg.Region == "" {
@@ -62,23 +66,34 @@ func New(ctx context.Context, cfg Config) (ports.FileStorage, error) {
 		o.UsePathStyle = cfg.UsePathStyle
 	})
 
+	presignEndpoint := cfg.Endpoint
+	if cfg.PublicEndpoint != "" {
+		presignEndpoint = cfg.PublicEndpoint
+	}
+	presignClient := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		if presignEndpoint != "" {
+			o.BaseEndpoint = aws.String(presignEndpoint)
+		}
+		o.UsePathStyle = cfg.UsePathStyle
+	})
+
 	pkg.LogInfo("Initializing S3 storage (bucket=" + cfg.Bucket + ", region=" + cfg.Region + ")")
 
-	return &Storage{client: client, presign: s3.NewPresignClient(client), bucket: cfg.Bucket}, nil
+	return &Storage{client: client, presign: s3.NewPresignClient(presignClient), bucket: cfg.Bucket}, nil
 }
 
 func (s *Storage) key(folder, filename string) (string, error) {
 	if folder == "" || !safeSegment.MatchString(folder) {
 		return "", fmt.Errorf("invalid storage folder")
 	}
-	if filename == "" || !safeSegment.MatchString(filename) || strings.Contains(filename, "..") {
+	if filename == "" || !safeFilename.MatchString(filename) || strings.Contains(filename, "..") {
 		return "", fmt.Errorf("invalid filename")
 	}
 	return folder + "/" + filename, nil
 }
 
 func (s *Storage) validatePath(path string) error {
-	if !safePath.MatchString(path) || strings.Contains(path, "..") {
+	if path == "" || !safePath.MatchString(path) || strings.Contains(path, "..") {
 		return fmt.Errorf("invalid storage path")
 	}
 	return nil

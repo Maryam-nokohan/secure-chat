@@ -10,4 +10,5 @@ type FileStorage interface {
 	Download(ctx context.Context, path string) (content []byte, contentType string, err error)
 	Delete(ctx context.Context, path string) error
 	PresignedURL(ctx context.Context, path string, expiry time.Duration) (string, error)
+
 }

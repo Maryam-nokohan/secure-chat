@@ -337,14 +337,56 @@
             ></button>
           </div>
           <div class="modal-body text-center">
+            <img
+              id="up-avatar"
+              src=""
+              alt=""
+              class="rounded-circle mb-2 d-none"
+              style="width: 72px; height: 72px; object-fit: cover"
+            />
             <div
+              id="up-avatar-fallback"
               class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-2"
-              style="width: 56px; height: 56px; font-size: 1.4rem"
+              style="width: 72px; height: 72px; font-size: 1.6rem"
             >
               <span id="up-initial"></span>
             </div>
             <div class="fw-bold" id="up-username"></div>
-            <div class="text-muted small" id="up-id"></div>
+            <div class="text-muted small mt-2" id="up-bio"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="viewUserModal" tabindex="-1">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title">Profile</h6>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body text-center">
+            <img
+              id="vu-avatar"
+              src=""
+              alt=""
+              class="rounded-circle mb-2 d-none"
+              style="width: 88px; height: 88px; object-fit: cover"
+            />
+            <div
+              id="vu-avatar-fallback"
+              class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center mb-2"
+              style="width: 88px; height: 88px; font-size: 2rem"
+            >
+              <span id="vu-initial"></span>
+            </div>
+            <div class="fw-bold fs-5" id="vu-username"></div>
+            <div class="text-muted small mt-2" id="vu-bio"></div>
+            <div class="text-muted small mt-2" id="vu-online"></div>
           </div>
         </div>
       </div>

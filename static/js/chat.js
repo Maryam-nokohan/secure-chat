@@ -85,50 +85,7 @@ async function sendMessage(e) {
   e.preventDefault();
   const text = messageInput.value.trim();
   if (!text) return;
-  if (
-    !ws ||
-    ws.readyState !== WebSocket.OPEN ||
-    !roomJoinReady ||
-    !currentRoom
-  ) {
-    appendSystemMessage("You're offline — message not sent. Reconnecting…");
-    return;
-  }
-  if (!myPrivateKey) {
-    appendSystemMessage("Setting up encryption — trying again…");
-    await loadMyPrivateKey();
-    if (!myPrivateKey) return;
-  }
-
-  if (!currentRoomProfile || currentRoomProfile.id !== currentRoom) {
-    appendSystemMessage("Still loading room info — try again in a moment.");
-    return;
-  }
-
-  const { ciphertext, nonce, rawKey } = await encryptMessage(text);
-  const keys = {};
-  const failedMembers = [];
-  for (const m of currentRoomProfile.members) {
-    const pubKey = await getMemberPublicKey(m.id, m.public_key);
-    if (!pubKey) {
-      failedMembers.push(m.username);
-      continue;
-    }
-    keys[m.id] = await encryptKeyForRecipient(rawKey, pubKey);
-  }
-  if (failedMembers.length) {
-    console.warn("Could not encrypt for:", failedMembers.join(", "));
-  }
-
-  ws.send(
-    JSON.stringify({
-      type: "message",
-      room_id: currentRoom,
-      ciphertext,
-      nonce,
-      keys,
-    }),
-  );
+  await sendEncryptedText(text);
   messageInput.value = "";
 }
 
@@ -222,7 +179,6 @@ function refreshMembersPanel() {
     list.innerHTML = "";
     return;
   }
-
   const members = currentRoomProfile.members || [];
   document.getElementById("room-member-count").textContent =
     `${members.length} member${members.length !== 1 ? "s" : ""}`;
@@ -230,7 +186,11 @@ function refreshMembersPanel() {
   list.innerHTML = members
     .map((m) => {
       const isOnline = !!onlineUsers[m.id];
-      return `<div class="member-item">
+      const clickable =
+        m.id !== CURRENT_UID
+          ? ` onclick="showUserProfile('${m.id}')" style="cursor:pointer"`
+          : "";
+      return `<div class="member-item"${clickable}>
       <span class="online-dot ${isOnline ? "online" : "offline"}"></span>
       <span>${esc(m.username)}</span>
       ${m.id === CURRENT_UID ? '<span class="badge bg-secondary ms-auto" style="font-size:.65rem">you</span>' : ""}
@@ -359,10 +319,45 @@ async function showProfile() {
   try {
     const res = await fetch("/profile");
     const data = await res.json();
-    document.getElementById("up-initial").textContent =
-      data.username[0].toUpperCase();
     document.getElementById("up-username").textContent = data.username;
+    document.getElementById("up-bio").textContent = data.bio || "No bio yet.";
+    if (data.avatar_url) {
+      const img = document.getElementById("up-avatar");
+      img.src = data.avatar_url + "?t=" + Date.now();
+      img.classList.remove("d-none");
+      document.getElementById("up-avatar-fallback").classList.add("d-none");
+    } else {
+      document.getElementById("up-initial").textContent =
+        data.username[0].toUpperCase();
+    }
     new bootstrap.Modal(document.getElementById("userProfileModal")).show();
+  } catch {
+    alert("Failed to load profile.");
+  }
+}
+
+async function showUserProfile(userId) {
+  try {
+    const res = await fetch(`/users/${userId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById("vu-username").textContent = data.username;
+    document.getElementById("vu-bio").textContent = data.bio || "No bio yet.";
+    document.getElementById("vu-online").textContent = onlineUsers[userId]
+      ? "Online"
+      : "";
+    if (data.avatar_url) {
+      const img = document.getElementById("vu-avatar");
+      img.src = data.avatar_url + "?t=" + Date.now();
+      img.classList.remove("d-none");
+      document.getElementById("vu-avatar-fallback").classList.add("d-none");
+    } else {
+      document.getElementById("vu-avatar").classList.add("d-none");
+      document.getElementById("vu-avatar-fallback").classList.remove("d-none");
+      document.getElementById("vu-initial").textContent =
+        data.username[0].toUpperCase();
+    }
+    new bootstrap.Modal(document.getElementById("viewUserModal")).show();
   } catch {
     alert("Failed to load profile.");
   }
@@ -389,6 +384,53 @@ document.getElementById("file-input").addEventListener("change", async (e) => {
   );
 });
 
+async function sendEncryptedText(text) {
+  if (!text) return;
+  if (
+    !ws ||
+    ws.readyState !== WebSocket.OPEN ||
+    !roomJoinReady ||
+    !currentRoom
+  ) {
+    appendSystemMessage("You're offline — message not sent. Reconnecting…");
+    return;
+  }
+  if (!myPrivateKey) {
+    appendSystemMessage("Setting up encryption — trying again…");
+    await loadMyPrivateKey();
+    if (!myPrivateKey) return;
+  }
+  if (!currentRoomProfile || currentRoomProfile.id !== currentRoom) {
+    appendSystemMessage("Still loading room info — try again in a moment.");
+    return;
+  }
+
+  const { ciphertext, nonce, rawKey } = await encryptMessage(text);
+  const keys = {};
+  const failedMembers = [];
+  for (const m of currentRoomProfile.members) {
+    const pubKey = await getMemberPublicKey(m.id, m.public_key);
+    if (!pubKey) {
+      failedMembers.push(m.username);
+      continue;
+    }
+    keys[m.id] = await encryptKeyForRecipient(rawKey, pubKey);
+  }
+  if (failedMembers.length) {
+    console.warn("Could not encrypt for:", failedMembers.join(", "));
+  }
+
+  ws.send(
+    JSON.stringify({
+      type: "message",
+      room_id: currentRoom,
+      ciphertext,
+      nonce,
+      keys,
+    }),
+  );
+}
+
 function showRoomProfile() {
   if (!currentRoomProfile) return;
   document.getElementById("rp-room-name").textContent = currentRoomProfile.name;
@@ -400,8 +442,8 @@ function showRoomProfile() {
   el.innerHTML = (currentRoomProfile.members || [])
     .map((m) => {
       const online = !!onlineUsers[m.id];
-      return `<div class="member-item border-bottom">
-      <span class="online-dot ${online ? "online" : "offline"}"></span>
+      return `<div class="member-item"${clickable}>
+      <span class="online-dot ${isOnline ? "online" : "offline"}"></span>
       <span>${esc(m.username)}</span>
       ${m.id === CURRENT_UID ? '<span class="badge bg-secondary ms-auto" style="font-size:.65rem">you</span>' : ""}
   </div>`;
@@ -466,18 +508,32 @@ function bubble(label, content, isSelf, time) {
   const timeHtml = time
     ? `<div class="small opacity-50 mt-1">${esc(time)}</div>`
     : "";
+
+  const fileMatch = /^\[\[file:([0-9a-fA-F-]+):([^:]+):(.+)\]\]$/.exec(content);
+  let bodyHtml;
+  if (fileMatch && currentRoom) {
+    const [, attId, contentType, filename] = fileMatch;
+    const url = `/rooms/${currentRoom}/attachments/${attId}`;
+    if (contentType.startsWith("image/")) {
+      bodyHtml = `<a href="${url}" target="_blank"><img src="${url}" style="max-width:200px;border-radius:8px" alt="${esc(filename)}"></a>`;
+    } else {
+      bodyHtml = `<a href="${url}" target="_blank"><i class="bi bi-file-earmark-arrow-down me-1"></i>${esc(filename)}</a>`;
+    }
+  } else {
+    bodyHtml = esc(content);
+  }
+
   if (isSelf) {
     row.innerHTML = `<div class="message-bubble bg-primary text-white shadow-sm">
       <div class="small fw-light opacity-75">You</div>
-      <div>${esc(content)}</div>${timeHtml}</div>`;
+      <div>${bodyHtml}</div>${timeHtml}</div>`;
   } else {
     row.innerHTML = `<div class="message-bubble bg-light border text-dark shadow-sm">
       <div class="small fw-bold text-primary">${esc(label)}</div>
-      <div>${esc(content)}</div>${timeHtml}</div>`;
+      <div>${bodyHtml}</div>${timeHtml}</div>`;
   }
   return row;
 }
-
 function esc(str) {
   if (!str) return "";
   return str.replace(

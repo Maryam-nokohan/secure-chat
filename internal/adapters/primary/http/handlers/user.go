@@ -53,12 +53,17 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+	avatarURL := ""
+	if u.AvatarPath != "" {
+		avatarURL = "/avatar/" + u.ID.String()
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":       u.ID.String(),
-		"username": u.Username,
+		"id":         u.ID.String(),
+		"username":   u.Username,
+		"bio":        u.Bio,
+		"avatar_url": avatarURL,
 	})
 }
-
 func (h *UserHandler) RotatePublicKey(c *gin.Context) {
 	userIDStr, _ := c.Get("userID")
 	userID, err := uuid.FromString(userIDStr.(string))
