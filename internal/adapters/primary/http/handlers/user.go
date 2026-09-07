@@ -34,7 +34,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	}
 	avatarURL := ""
 	if u.AvatarPath != "" {
-		avatarURL = "/avatar/" + u.AvatarPath
+		avatarURL = "/avatar/" + u.ID.String()
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"id": userIDStr, "username": username, "bio": u.Bio,
