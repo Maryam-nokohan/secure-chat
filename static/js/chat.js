@@ -433,33 +433,66 @@ async function sendEncryptedText(text) {
 
 function showRoomProfile() {
   if (!currentRoomProfile) return;
-  document.getElementById("rp-room-name").textContent = currentRoomProfile.name;
+
+  document.getElementById("rp-room-name").textContent =
+    currentRoomProfile.name;
+
   document.getElementById("rp-invite-url").value =
     currentRoomProfile.invite_url;
+
   document.getElementById("rp-copy-ok").classList.add("d-none");
 
   const el = document.getElementById("rp-members-list");
+
   el.innerHTML = (currentRoomProfile.members || [])
     .map((m) => {
-      const online = !!onlineUsers[m.id];
+      const isOnline = !!onlineUsers[m.id];
+
+      const clickable =
+        m.id !== CURRENT_UID
+          ? ` onclick="showUserProfile('${m.id}')" style="cursor:pointer"`
+          : "";
+
       return `<div class="member-item"${clickable}>
-      <span class="online-dot ${isOnline ? "online" : "offline"}"></span>
-      <span>${esc(m.username)}</span>
-      ${m.id === CURRENT_UID ? '<span class="badge bg-secondary ms-auto" style="font-size:.65rem">you</span>' : ""}
-  </div>`;
+        <span class="online-dot ${isOnline ? "online" : "offline"}"></span>
+        <span>${esc(m.username)}</span>
+        ${
+          m.id === CURRENT_UID
+            ? '<span class="badge bg-secondary ms-auto" style="font-size:.65rem">you</span>'
+            : ""
+        }
+      </div>`;
     })
     .join("");
 
-  new bootstrap.Modal(document.getElementById("roomProfileModal")).show();
+  new bootstrap.Modal(
+    document.getElementById("roomProfileModal")
+  ).show();
 }
 
-function copyRoomInvite() {
+async function copyRoomInvite() {
   const url = document.getElementById("rp-invite-url").value;
-  navigator.clipboard.writeText(url).then(() => {
-    const el = document.getElementById("rp-copy-ok");
+  const el = document.getElementById("rp-copy-ok");
+
+  try {
+    await navigator.clipboard.writeText(url);
+
+    el.textContent = "✓ Copied!";
     el.classList.remove("d-none");
-    setTimeout(() => el.classList.add("d-none"), 2000);
-  });
+
+    setTimeout(() => {
+      el.classList.add("d-none");
+    }, 2000);
+  } catch (err) {
+    console.error("Failed to copy invite link:", err);
+
+    el.textContent = "Failed to copy";
+    el.classList.remove("d-none");
+
+    setTimeout(() => {
+      el.classList.add("d-none");
+    }, 2000);
+  }
 }
 
 async function appendLiveMessage(msg) {

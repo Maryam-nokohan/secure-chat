@@ -36,6 +36,7 @@ func NewUserService(
 func (s *UserService) Register(
 	ctx context.Context,
 	name string,
+	email string,
 	password string,
 	publicKey string,
 	wrappedPrivateKey string,
@@ -43,9 +44,13 @@ func (s *UserService) Register(
 	privateKeySalt string,
 ) (*auth.AuthResult, error) {
 	username := strings.TrimSpace(name)
+	email = pkg.NormalizeEmail(email)
 
 	if username == "" {
 		return nil, errors.New("username is required")
+	}
+	if err := pkg.ValidateEmail(email); err != nil {
+		return nil, err
 	}
 	if err := pkg.ValidatePassword(password); err != nil {
 		return nil, err
@@ -60,6 +65,10 @@ func (s *UserService) Register(
 	existingUser, err := s.repo.FindUserByUsername(ctx, username)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("username already exists")
+	}
+	existingUser, err = s.repo.FindUserByEmail(ctx, email)
+	if err == nil && existingUser != nil {
+		return nil, errors.New("an account with this email already exists")
 	}
 
 	hash, err := pkg.HashPassword(password)
@@ -81,6 +90,7 @@ func (s *UserService) Register(
 	newUser := user.User{
 		ID:                userID,
 		Username:          username,
+		Email:             email,
 		PassHash:          hash,
 		PublicKey:         publicKey,
 		WrappedPrivateKey: wrappedPrivateKey,
@@ -91,6 +101,10 @@ func (s *UserService) Register(
 	}
 
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
+		if pkg.IsUniqueViolation(err) {
+			return nil, errors.New("an account with this email or username already exists")
+		}
+
 		pkg.LogError(err)
 		return nil, err
 	}
@@ -142,62 +156,67 @@ func (s *UserService) FindOrCreateOAuthUser(ctx context.Context, info auth.UserI
 	if info.ProviderID == "" {
 		return nil, false, false, errors.New("oauth provider returned no subject id")
 	}
+	email := pkg.NormalizeEmail(info.Email)
 
 	if existing, err := s.repo.FindUserByProvider(ctx, provider, info.ProviderID); err == nil && existing != nil {
-		token, err := s.tokenSvc.Generate(existing.ID.String(), existing.Username, existing.Role)
-		if err != nil {
-			return nil, false, false, err
-		}
-		needsKeys := existing.PublicKey == "" || existing.WrappedPrivateKey == ""
-		return &auth.AuthResult{
-			Token: token, UserID: existing.ID.String(), Username: existing.Username,
-			PublicKey: existing.PublicKey, Role: existing.Role,
-		}, false, needsKeys, nil
+		return s.issueOAuthToken(existing)
 	}
-	if info.Email != "" {
-		if byEmail, err := s.repo.FindUserByEmail(ctx, info.Email); err == nil && byEmail != nil {
+
+	if email != "" {
+		if byEmail, err := s.repo.FindUserByEmail(ctx, email); err == nil && byEmail != nil {
+			if byEmail.Provider == "" {
+				byEmail.Provider = provider
+				byEmail.ProviderID = info.ProviderID
+				if err := s.repo.EditUser(ctx, *byEmail); err != nil {
+					return nil, false, false, err
+				}
+				return s.issueOAuthToken(byEmail)
+			}
 			return nil, false, false, errors.New("an account with this email already exists; please log in with your original method")
 		}
 	}
 
-	username, err := s.uniqueUsernameFromEmail(ctx, info.Email, info.ProviderID)
+	username, err := s.uniqueUsernameFromEmail(ctx, email, info.ProviderID)
 	if err != nil {
 		return nil, false, false, err
 	}
-
 	userID, err := uuid.NewV4()
 	if err != nil {
 		return nil, false, false, err
 	}
 	publicID, err := s.generateUniquePublicID(ctx)
 	if err != nil {
-		return nil,false, false, err
+		return nil, false, false, err
 	}
 
 	newUser := user.User{
-		ID:         userID,
-		Username:   username,
-		PublicID:   publicID,
-		Email:      info.Email,
-		Provider:   provider,
-		ProviderID: info.ProviderID,
-		Role:       "user",
+		ID: userID, Username: username, PublicID: publicID,
+		Email: email, Provider: provider, ProviderID: info.ProviderID, Role: "user",
 	}
+
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
+		if pkg.IsUniqueViolation(err) {
+			if existing, ferr := s.repo.FindUserByProvider(ctx, provider, info.ProviderID); ferr == nil && existing != nil {
+				return s.issueOAuthToken(existing)
+			}
+		}
 		pkg.LogError(err)
 		return nil, false, false, err
 	}
 
-	token, err := s.tokenSvc.Generate(userID.String(), username, newUser.Role)
+	return s.issueOAuthToken(&newUser)
+}
+
+func (s *UserService) issueOAuthToken(u *user.User) (*auth.AuthResult, bool, bool, error) {
+	token, err := s.tokenSvc.Generate(u.ID.String(), u.Username, u.Role)
 	if err != nil {
 		return nil, false, false, err
 	}
-
-	pkg.LogInfo("OAuth user provisioned: " + username + " via " + provider)
-
+	needsKeys := u.PublicKey == "" || u.WrappedPrivateKey == ""
 	return &auth.AuthResult{
-		Token: token, UserID: userID.String(), Username: username, Role: newUser.Role,
-	}, true, true, nil
+		Token: token, UserID: u.ID.String(), Username: u.Username,
+		PublicKey: u.PublicKey, Role: u.Role,
+	}, false, needsKeys, nil
 }
 
 func (s *UserService) SetupEncryptionKeys(ctx context.Context, userIDStr, publicKey, wrappedPrivateKey, privateKeyIV, privateKeySalt string) error {

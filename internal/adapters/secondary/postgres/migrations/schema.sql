@@ -154,6 +154,22 @@ DO $$ BEGIN
     END IF;
 END $$;
 
+SELECT provider, provider_id, count(*) 
+FROM users WHERE provider_id <> '' 
+GROUP BY provider, provider_id HAVING count(*) > 1;
+
+SELECT lower(email), count(*) 
+FROM users WHERE email <> '' 
+GROUP BY lower(email) HAVING count(*) > 1;
+
+
+-- normalize existing data first
+UPDATE users SET email = lower(trim(email)) WHERE email <> '';
+
+-- provider identity must be unique
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_identity
+    ON users (provider, provider_id) WHERE provider_id <> '';
+
 DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
@@ -280,8 +296,12 @@ DO $$ BEGIN
     END IF;
 END $$;
 
+DROP INDEX IF EXISTS idx_users_email_unique;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
-    ON users (email) WHERE email <> '';
+    ON users (LOWER(TRIM(email)))
+    WHERE email IS NOT NULL AND TRIM(email) <> '';
+    
 CREATE INDEX IF NOT EXISTS idx_users_provider_id ON users(provider_id);
 ALTER TABLE users ALTER COLUMN passhash DROP NOT NULL;
 
