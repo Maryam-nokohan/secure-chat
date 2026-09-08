@@ -14,18 +14,6 @@ import (
 
 const userCacheTTL = 10 * time.Minute
 
-type cachedUser struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	PublicKey string    `json:"public_key"`
-	Bio       string    `json:"bio"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-func toCached(u user.User) cachedUser {
-	return cachedUser{ID: u.ID, Username: u.Username, PublicKey: u.PublicKey, Bio: u.Bio, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
-}
 type UserRepository struct {
 	db    *gorm.DB
 	cache ports.Cache
@@ -113,7 +101,6 @@ func (r *UserRepository) RestoreUser(ctx context.Context, id uuid.UUID) error {
 	_ = r.cache.Delete(ctx, userIDKey(id))
 	return nil
 }
-func providerKey(provider, providerID string) string { return "user:oauth:" + provider + ":" + providerID }
 
 func (r *UserRepository) FindUserByProvider(ctx context.Context, provider, providerID string) (*user.User, error) {
 	var u user.User
@@ -126,7 +113,14 @@ func (r *UserRepository) FindUserByProvider(ctx context.Context, provider, provi
 }
 func (r *UserRepository) FindUserByEmail(ctx context.Context, email string) (*user.User, error) {
 	var u user.User
-	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&u).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("email = ?", pkg.NormalizeEmail(email)).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+func (r *UserRepository) FindUserByPublicID(ctx context.Context, publicID string) (*user.User, error) {
+	var u user.User
+	if err := r.db.WithContext(ctx).Where("public_id = ?", publicID).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil

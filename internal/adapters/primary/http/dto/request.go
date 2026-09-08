@@ -7,6 +7,7 @@ type SendMessageWSRequest struct {
 
 type RegisterRequest struct {
 	Username          string `form:"username"`
+	Email             string `form:"email"`
 	Password          string `form:"password"`
 	PublicKey         string `form:"public_key"`
 	WrappedPrivateKey string `form:"wrapped_private_key"`

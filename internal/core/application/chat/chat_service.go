@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -103,6 +104,9 @@ func (c *ChatService) JoinRoomByCode(ctx context.Context, code string, userID uu
 	if err != nil {
 		return nil, fmt.Errorf("invalid invite code")
 	}
+	if room.IsDirect {
+		return nil, fmt.Errorf("this invite code cannot be used to join a private conversation")
+	}
 	for _, u := range room.Users {
 		if u.ID == userID {
 			return room, nil
@@ -196,4 +200,44 @@ func (c *ChatService) IsMember(ctx context.Context, roomID, userID uuid.UUID) (b
 		}
 	}
 	return false, nil
+}
+func (c *ChatService) CreateDirectRoom(ctx context.Context, userA, userB uuid.UUID) (*domainChat.Room, error) {
+	if userA == userB {
+		return nil, fmt.Errorf("cannot create a direct room with yourself")
+	}
+	a, b := userA, userB
+	if strings.Compare(a.String(), b.String()) > 0 {
+		a, b = b, a
+	}
+	name := fmt.Sprintf("dm:%s:%s", a.String(), b.String())
+
+	if existing, err := c.chatRepo.FindRoomByName(ctx, name); err == nil && existing != nil {
+		return existing, nil
+	}
+
+	inviteCode, err := generateInviteCode()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate invite code: %w", err)
+	}
+	roomID, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+	room := &domainChat.Room{
+		ID: roomID, Name: name, CreatorID: userA,
+		InviteCode: inviteCode, CreatedAt: time.Now(), IsDirect: true,
+	}
+	if err := c.chatRepo.CreateRoom(ctx, room); err != nil {
+		return nil, fmt.Errorf("create direct room: %w", err)
+	}
+	if err := c.chatRepo.AddUserToRoom(ctx, roomID, userA); err != nil {
+		return nil, fmt.Errorf("failed to add first participant: %w", err)
+	}
+	if err := c.chatRepo.AddUserToRoom(ctx, roomID, userB); err != nil {
+		return nil, fmt.Errorf("failed to add second participant: %w", err)
+	}
+	_ = c.cache.Delete(ctx, allRoomsKey())
+	_ = c.cache.Delete(ctx, userRoomsKey(userA))
+	_ = c.cache.Delete(ctx, userRoomsKey(userB))
+	return room, nil
 }

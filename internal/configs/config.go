@@ -18,4 +18,12 @@ type Config struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleCallbackURL  string
+
+	S3Bucket          string
+	S3Region          string
+	S3AccessKeyID     string
+	S3SecretAccessKey string
+	S3Endpoint        string 
+	S3PublicEndpoint  string
+	S3UsePathStyle    bool
 }

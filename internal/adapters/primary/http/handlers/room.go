@@ -73,13 +73,14 @@ func (h *RoomHandler) ListRooms(c *gin.Context) {
 		unread = map[uuid.UUID]bool{}
 	}
 	type roomDTO struct {
-		ID     string `json:"id"`
-		Name   string `json:"name"`
-		Unread bool   `json:"unread"`
+		ID       string `json:"id"`
+		Name     string `json:"name"`
+		Unread   bool   `json:"unread"`
+		IsDirect bool   `json:"is_direct"`
 	}
 	result := make([]roomDTO, len(rooms))
 	for i, r := range rooms {
-		result[i] = roomDTO{ID: r.ID.String(), Name: r.Name, Unread: unread[r.ID]}
+		result[i] = roomDTO{ID: r.ID.String(), Name: r.Name, Unread: unread[r.ID], IsDirect: r.IsDirect}
 	}
 	c.JSON(http.StatusOK, result)
 }

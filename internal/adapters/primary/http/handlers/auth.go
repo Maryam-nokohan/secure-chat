@@ -42,8 +42,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	res, err := h.svc.Register(
 		c.Request.Context(),
-		req.Username, req.Password, req.PublicKey,
-		req.WrappedPrivateKey, req.PrivateKeyIV, req.PrivateKeySalt,
+		req.Username,
+		req.Email,
+		req.Password,
+		req.PublicKey,
+		req.WrappedPrivateKey,
+		req.PrivateKeyIV,
+		req.PrivateKeySalt,
 	)
 	if err != nil {
 		pkg.LogHttpError(err)

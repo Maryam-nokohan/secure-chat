@@ -22,9 +22,23 @@ func NewUserHandler(userRepo ports.UserRepository) *UserHandler {
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userIDStr, _ := c.Get("userID")
 	username, _ := c.Get("username")
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
+		return
+	}
+	u, err := h.userRepo.FindUserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	avatarURL := ""
+	if u.AvatarPath != "" {
+		avatarURL = "/avatar/" + u.ID.String()
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":       userIDStr,
-		"username": username,
+		"id": userIDStr, "username": username, "bio": u.Bio,
+		"public_id": u.PublicID, "avatar_url": avatarURL,
 	})
 }
 
@@ -39,12 +53,17 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+	avatarURL := ""
+	if u.AvatarPath != "" {
+		avatarURL = "/avatar/" + u.ID.String()
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":       u.ID.String(),
-		"username": u.Username,
+		"id":         u.ID.String(),
+		"username":   u.Username,
+		"bio":        u.Bio,
+		"avatar_url": avatarURL,
 	})
 }
-
 func (h *UserHandler) RotatePublicKey(c *gin.Context) {
 	userIDStr, _ := c.Get("userID")
 	userID, err := uuid.FromString(userIDStr.(string))
