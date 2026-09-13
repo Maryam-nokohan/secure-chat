@@ -7,6 +7,9 @@
 * [ ] Add voice calls
 * [ ] Add video calls
 * [ ] Add "I'm Not a Robot" verification system
+* [ ] forget your password btn
+* [ ] deleting & editing messages (mostly front)
+* [ ] CI/CD
 
 ## Frontend
 
