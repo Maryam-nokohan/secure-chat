@@ -54,9 +54,6 @@ func main() {
 	if err = migrations.RunMigrations(db); err != nil {
 		pkg.LogFattal(err.Error())
 	}
-	if err = migrations.RunMigrations(db); err != nil {
-		pkg.LogFattal(err.Error())
-	}
 
 	chatRepo := postgres.NewChatRepository(db)
 	msgRepo := postgres.NewMessageRepository(db)

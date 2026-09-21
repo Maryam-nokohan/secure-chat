@@ -95,7 +95,11 @@ func (s *Service) CreateAdmin(ctx context.Context, username, passHash, publicKey
 	if err != nil {
 		return nil, err
 	}
-	u := user.User{ID: id, Username: username, PassHash: passHash, PublicKey: publicKey, Role: "admin"}
+	publicID, err := pkg.GeneratePublicIDCandidate()
+	if err != nil {
+		return nil, err
+	}
+	u := user.User{ID: id, Username: username, PassHash: passHash, PublicKey: publicKey, Role: "admin", PublicID: publicID}
 	if err := s.userRepo.CreateUser(ctx, u); err != nil {
 		return nil, err
 	}

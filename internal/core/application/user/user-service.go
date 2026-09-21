@@ -270,11 +270,10 @@ func (s *UserService) uniqueUsernameFromEmail(ctx context.Context, email, provid
 
 func (s *UserService) generateUniquePublicID(ctx context.Context) (string, error) {
 	for i := 0; i < 5; i++ {
-		b := make([]byte, 6)
-		if _, err := rand.Read(b); err != nil {
+		candidate, err := pkg.GeneratePublicIDCandidate()
+		if err != nil {
 			return "", err
 		}
-		candidate := strings.ToUpper(hex.EncodeToString(b))
 		if _, err := s.repo.FindUserByPublicID(ctx, candidate); err != nil {
 			return candidate, nil
 		}
