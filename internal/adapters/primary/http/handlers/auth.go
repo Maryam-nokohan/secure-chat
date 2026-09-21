@@ -29,7 +29,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	var req dto.RegisterRequest
 
-	if err := c.ShouldBind(&req); err != nil {
+	if err := bindAuthBody(c, &req); err != nil {
+		if wantsJSON(c) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form"})
+			return
+		}
 		c.HTML(http.StatusBadRequest,
 			"register.html",
 			gin.H{
@@ -52,6 +56,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	)
 	if err != nil {
 		pkg.LogHttpError(err)
+		if wantsJSON(c) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.HTML(http.StatusBadRequest, "register.html", gin.H{
 			"error": err.Error(), "csrfToken": csrf.GetToken(c),
 		})
@@ -68,6 +76,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		true,
 	)
 
+	if wantsJSON(c) {
+		c.JSON(http.StatusCreated, gin.H{"ok": true, "username": req.Username})
+		return
+	}
 	c.Redirect(http.StatusSeeOther, "/login")
 }
 
@@ -78,7 +90,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	var req dto.LoginRequest
 
-	if err := c.ShouldBind(&req); err != nil {
+	if err := bindAuthBody(c, &req); err != nil {
+		if wantsJSON(c) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.HTML(
 			http.StatusBadRequest,
 			"login.html",
@@ -93,6 +109,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	res, err := h.svc.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		pkg.LogHttpError(err)
+		if wantsJSON(c) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
 		c.HTML(http.StatusBadRequest,
 			"login.html",
@@ -105,6 +125,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	c.SetCookie("Authorization", res.Token, 3600*24, "/", "", true, true)
+
+	if wantsJSON(c) {
+		c.JSON(http.StatusOK, gin.H{
+			"ok": true, "username": req.Username, "role": res.Role,
+		})
+		return
+	}
 
 	if res.Role == "admin" {
 		c.Redirect(http.StatusSeeOther, "/admin")
@@ -124,6 +151,10 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		true,
 	)
 
+	if wantsJSON(c) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return
+	}
 	c.Redirect(http.StatusSeeOther, "/login")
 }
 
@@ -135,26 +166,26 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	info, err := h.oauthSvc.CompleteAuth(c.Writer, c.Request, "google")
 	if err != nil {
 		pkg.LogHttpError(err)
-		c.Redirect(http.StatusSeeOther, "/login?error=oauth_failed")
+		c.Redirect(http.StatusSeeOther, "/enter?error=oauth_failed")
 		return
 	}
 
 	result, _, needsKeys, err := h.svc.FindOrCreateOAuthUser(c.Request.Context(), *info, "google")
 	if err != nil {
 		pkg.LogHttpError(err)
-		c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape(err.Error()))
+		c.Redirect(http.StatusSeeOther, "/enter?error="+url.QueryEscape(err.Error()))
 		return
 	}
 
 	c.SetCookie("Authorization", result.Token, 3600*24, "/", "", true, true)
 
 	if needsKeys {
-		c.Redirect(http.StatusSeeOther, "/setup-encryption")
+		c.Redirect(http.StatusSeeOther, "/unlock")
 		return
 	}
 	if result.Role == "admin" {
 		c.Redirect(http.StatusSeeOther, "/admin")
 		return
 	}
-	c.Redirect(http.StatusSeeOther, "/chat")
+	c.Redirect(http.StatusSeeOther, "/desk")
 }

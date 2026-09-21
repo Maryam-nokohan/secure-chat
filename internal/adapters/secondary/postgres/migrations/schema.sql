@@ -1,17 +1,51 @@
+-- ============================================================
+-- Secure Chat schema
+--
+-- This file is executed on every startup (see migrations.go) and must
+-- be safe to re-run against both a brand-new database and an existing
+-- one. Rules that keep it that way:
+--   1. Objects are created in dependency order: extensions -> tables
+--      (parents before the tables that reference them) -> indexes ->
+--      triggers.
+--   2. Every CREATE uses IF NOT EXISTS.
+--   3. Tables are created with their full, final column set instead of
+--      being patched together with ALTER TABLE across many runs, so
+--      there's nothing that depends on a column being added "later in
+--      the file" by a previous version of this script.
+-- ============================================================
+
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ------------------------------------------------------------
 -- users
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    username       VARCHAR(50) UNIQUE NOT NULL,
-    passhash       VARCHAR(255) NOT NULL,
-    public_key     TEXT        NOT NULL DEFAULT '',
-    bio            TEXT        DEFAULT '',
-    created_at     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    id                   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    username             VARCHAR(50)  UNIQUE NOT NULL,
+    passhash             VARCHAR(255),
+    public_key           TEXT         NOT NULL DEFAULT '',
+    bio                  TEXT         DEFAULT '',
+
+    email                VARCHAR(255) DEFAULT '',
+    provider             VARCHAR(20)  DEFAULT '',
+    provider_id          VARCHAR(255) DEFAULT '',
+
+    role                 VARCHAR(20)  NOT NULL DEFAULT 'user',
+    deleted_at           TIMESTAMPTZ,
+
+    wrapped_private_key  TEXT         NOT NULL DEFAULT '',
+    private_key_iv       VARCHAR(64)  NOT NULL DEFAULT '',
+    private_key_salt     VARCHAR(64)  NOT NULL DEFAULT '',
+
+    public_id            VARCHAR(12),
+    avatar_path          TEXT         NOT NULL DEFAULT '',
+
+    created_at           TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP
 );
+
+-- passhash is nullable because OAuth-only accounts never set one.
+ALTER TABLE users ALTER COLUMN passhash DROP NOT NULL;
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -24,43 +58,19 @@ CREATE TRIGGER update_users_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- ------------------------------------------------------------
--- profile additions
+-- rooms (created before contacts, which references it)
 -- ------------------------------------------------------------
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='public_id'
-    ) THEN
-        ALTER TABLE users ADD COLUMN public_id VARCHAR(12);
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='avatar_path'
-    ) THEN
-        ALTER TABLE users ADD COLUMN avatar_path TEXT NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_public_id
-    ON users (public_id) WHERE public_id IS NOT NULL AND public_id <> '';
+CREATE TABLE IF NOT EXISTS rooms (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        VARCHAR(100) UNIQUE NOT NULL,
+    creator_id  UUID         NOT NULL REFERENCES users(id),
+    invite_code VARCHAR(32)  UNIQUE NOT NULL DEFAULT '',
+    is_direct   BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP
+);
 
 -- ------------------------------------------------------------
--- rooms: direct vs group
--- ------------------------------------------------------------
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='rooms' AND column_name='is_direct'
-    ) THEN
-        ALTER TABLE rooms ADD COLUMN is_direct BOOLEAN NOT NULL DEFAULT FALSE;
-    END IF;
-END $$;
-
--- ------------------------------------------------------------
--- contacts
+-- contacts (references users + rooms, both already exist above)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS contacts (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -71,23 +81,6 @@ CREATE TABLE IF NOT EXISTS contacts (
     created_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT no_self_contact CHECK (requester_id <> addressee_id)
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_pair ON contacts (
-    LEAST(requester_id, addressee_id), GREATEST(requester_id, addressee_id)
-);
-CREATE INDEX IF NOT EXISTS idx_contacts_addressee ON contacts(addressee_id, status);
-CREATE INDEX IF NOT EXISTS idx_contacts_requester ON contacts(requester_id, status);
-
--- ------------------------------------------------------------
--- rooms
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS rooms (
-    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    name        VARCHAR(100) UNIQUE NOT NULL,
-    creator_id  UUID         NOT NULL REFERENCES users(id),
-    invite_code VARCHAR(32)  UNIQUE NOT NULL DEFAULT '',
-    created_at  TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------------------------------------
@@ -124,7 +117,7 @@ CREATE TABLE IF NOT EXISTS room_reads (
 );
 
 -- ------------------------------------------------------------
--- message_keys  (per-recipient wrapped AES key for a message)
+-- message_keys (per-recipient wrapped AES key for a message)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS message_keys (
     message_id    UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -133,7 +126,9 @@ CREATE TABLE IF NOT EXISTS message_keys (
     PRIMARY KEY (message_id, recipient_id)
 );
 
--- attachments table to store metadata about uploaded files
+-- ------------------------------------------------------------
+-- attachments
+-- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS attachments (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_id      UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
@@ -143,178 +138,39 @@ CREATE TABLE IF NOT EXISTS attachments (
     size_bytes   BIGINT NOT NULL,
     created_at   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_attachments_room ON attachments(room_id);
 
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='rooms' AND column_name='invite_code'
-    ) THEN
-        ALTER TABLE rooms ADD COLUMN invite_code VARCHAR(32) UNIQUE NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-SELECT provider, provider_id, count(*) 
-FROM users WHERE provider_id <> '' 
-GROUP BY provider, provider_id HAVING count(*) > 1;
-
-SELECT lower(email), count(*) 
-FROM users WHERE email <> '' 
-GROUP BY lower(email) HAVING count(*) > 1;
-
-
--- normalize existing data first
+-- ============================================================
+-- Data normalization (safe no-ops once already normalized)
+-- ============================================================
 UPDATE users SET email = lower(trim(email)) WHERE email <> '';
 
--- provider identity must be unique
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_identity
-    ON users (provider, provider_id) WHERE provider_id <> '';
+-- ============================================================
+-- Indexes & constraints (all referenced columns exist by this point)
+-- ============================================================
 
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='public_key'
-    ) THEN
-        ALTER TABLE users ADD COLUMN public_key TEXT NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='messages' AND column_name='nonce'
-    ) THEN
-        ALTER TABLE messages ADD COLUMN nonce VARCHAR(64) NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='email'
-    ) THEN
-        ALTER TABLE users DROP COLUMN email;
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='auth_provider'
-    ) THEN
-        ALTER TABLE users DROP COLUMN auth_provider;
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='provider_id'
-    ) THEN
-        ALTER TABLE users DROP COLUMN provider_id;
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='email_verified'
-    ) THEN
-        ALTER TABLE users DROP COLUMN email_verified;
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='role'
-    ) THEN
-        ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='deleted_at'
-    ) THEN
-        ALTER TABLE users ADD COLUMN deleted_at TIMESTAMPTZ;
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='wrapped_private_key'
-    ) THEN
-        ALTER TABLE users ADD COLUMN wrapped_private_key TEXT NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='private_key_iv'
-    ) THEN
-        ALTER TABLE users ADD COLUMN private_key_iv VARCHAR(64) NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='private_key_salt'
-    ) THEN
-        ALTER TABLE users ADD COLUMN private_key_salt VARCHAR(64) NOT NULL DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='email'
-    ) THEN
-        ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='provider'
-    ) THEN
-        ALTER TABLE users ADD COLUMN provider VARCHAR(20) DEFAULT '';
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='provider_id'
-    ) THEN
-        ALTER TABLE users ADD COLUMN provider_id VARCHAR(255) DEFAULT '';
-    END IF;
-END $$;
-
-DROP INDEX IF EXISTS idx_users_email_unique;
+-- users
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_public_id
+    ON users (public_id) WHERE public_id IS NOT NULL AND public_id <> '';
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
     ON users (LOWER(TRIM(email)))
     WHERE email IS NOT NULL AND TRIM(email) <> '';
-    
-CREATE INDEX IF NOT EXISTS idx_users_provider_id ON users(provider_id);
-ALTER TABLE users ALTER COLUMN passhash DROP NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_identity
+    ON users (provider, provider_id) WHERE provider_id <> '';
 
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_users_role       ON users(role);
 
+-- contacts
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_pair ON contacts (
+    LEAST(requester_id, addressee_id), GREATEST(requester_id, addressee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_contacts_addressee ON contacts(addressee_id, status);
+CREATE INDEX IF NOT EXISTS idx_contacts_requester ON contacts(requester_id, status);
 
-DROP INDEX IF EXISTS idx_users_email;
-DROP INDEX IF EXISTS idx_users_provider_id;
-
--- ============================================================
--- Indexes
--- ============================================================
+-- attachments / messages / message_keys
+CREATE INDEX IF NOT EXISTS idx_attachments_room       ON attachments(room_id);
 CREATE INDEX IF NOT EXISTS idx_message_keys_recipient ON message_keys(recipient_id);
 CREATE INDEX IF NOT EXISTS idx_messages_room_id        ON messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at     ON messages(created_at);

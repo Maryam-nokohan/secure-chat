@@ -13,7 +13,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: secure_chat_db
     ports:
-      - "127.0.0.1:5432:5432" 
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -45,7 +45,7 @@ services:
       start_period: 10s
 
   minio:
-    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    image: quay.io/minio/minio:latest
     container_name: secure-chat-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -64,7 +64,7 @@ services:
       retries: 10
 
   minio-init:
-    image: minio/mc:RELEASE.2025-04-08T15-39-49Z
+    image: quay.io/minio/mc:latest
     container_name: secure-chat-minio-init
     depends_on:
       minio:
@@ -96,6 +96,15 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+  frontend:
+    build:
+      context: ./frontend
+    container_name: secure-chat-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - app
 
 volumes:
   minio_data:

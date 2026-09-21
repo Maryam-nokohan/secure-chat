@@ -6,15 +6,15 @@ type SendMessageWSRequest struct {
 }
 
 type RegisterRequest struct {
-	Username          string `form:"username"`
-	Email             string `form:"email"`
-	Password          string `form:"password"`
-	PublicKey         string `form:"public_key"`
-	WrappedPrivateKey string `form:"wrapped_private_key"`
-	PrivateKeyIV      string `form:"private_key_iv"`
-	PrivateKeySalt    string `form:"private_key_salt"`
+	Username          string `form:"username" json:"username"`
+	Email             string `form:"email" json:"email"`
+	Password          string `form:"password" json:"password"`
+	PublicKey         string `form:"public_key" json:"public_key"`
+	WrappedPrivateKey string `form:"wrapped_private_key" json:"wrapped_private_key"`
+	PrivateKeyIV      string `form:"private_key_iv" json:"private_key_iv"`
+	PrivateKeySalt    string `form:"private_key_salt" json:"private_key_salt"`
 }
-type LoginRequest struct{
-	Username string `form:"username"`
-	Password string `form:"password"`
+type LoginRequest struct {
+	Username string `form:"username" json:"username"`
+	Password string `form:"password" json:"password"`
 }

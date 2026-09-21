@@ -140,12 +140,16 @@ func (h *UserHandler) SetupEncryptionSubmit(c *gin.Context, userSvc ports.UserSe
 	username, _ := c.Get("username")
 
 	var req struct {
-		PublicKey         string `form:"public_key"`
-		WrappedPrivateKey string `form:"wrapped_private_key"`
-		PrivateKeyIV      string `form:"private_key_iv"`
-		PrivateKeySalt    string `form:"private_key_salt"`
+		PublicKey         string `form:"public_key" json:"public_key"`
+		WrappedPrivateKey string `form:"wrapped_private_key" json:"wrapped_private_key"`
+		PrivateKeyIV      string `form:"private_key_iv" json:"private_key_iv"`
+		PrivateKeySalt    string `form:"private_key_salt" json:"private_key_salt"`
 	}
-	if err := c.ShouldBind(&req); err != nil {
+	if err := bindAuthBody(c, &req); err != nil {
+		if wantsJSON(c) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form"})
+			return
+		}
 		c.HTML(http.StatusBadRequest, "setup-encryption.html", gin.H{
 			"error": "invalid form", "csrfToken": csrf.GetToken(c), "username": username,
 		})
@@ -156,11 +160,19 @@ func (h *UserHandler) SetupEncryptionSubmit(c *gin.Context, userSvc ports.UserSe
 		c.Request.Context(), userIDStr.(string),
 		req.PublicKey, req.WrappedPrivateKey, req.PrivateKeyIV, req.PrivateKeySalt,
 	); err != nil {
+		if wantsJSON(c) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.HTML(http.StatusBadRequest, "setup-encryption.html", gin.H{
 			"error": err.Error(), "csrfToken": csrf.GetToken(c), "username": username,
 		})
 		return
 	}
 
+	if wantsJSON(c) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return
+	}
 	c.Redirect(http.StatusSeeOther, "/chat")
 }

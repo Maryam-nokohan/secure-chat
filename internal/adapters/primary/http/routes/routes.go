@@ -31,6 +31,9 @@ func SetupRoutes(
 
 func setupPublicRoutes(r *gin.Engine, authHandler *handlers.AuthHandler) {
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusMovedPermanently, "/login") })
+	r.GET("/csrf", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"token": csrf.GetToken(c)})
+	})
 
 	auth := r.Group("/")
 	auth.Use(middlewares.AuthRateLimiter())
