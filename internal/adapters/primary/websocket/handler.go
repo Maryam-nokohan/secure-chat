@@ -3,6 +3,7 @@ package websocket
 import (
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -24,9 +25,17 @@ var Upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true},
-	}
-
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true 
+		}
+		u, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+		return u.Host == r.Host 
+		},
+}
 func (h *Handler) HandleWebSocket(c *gin.Context) {
 	userID, existsID := c.Get("userID")
 	username, existsName := c.Get("username")
