@@ -7,3 +7,8 @@ type SendMessageWSResponse struct {
 	Text       string `json:"text"`
 	Date       string `json:"date"`
 }
+type AuthResponse struct {
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	Redirect string `json:"redirect"`
+}

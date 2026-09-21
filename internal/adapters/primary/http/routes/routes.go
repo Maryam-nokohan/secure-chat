@@ -30,17 +30,16 @@ func SetupRoutes(
 }
 
 func setupPublicRoutes(r *gin.Engine, authHandler *handlers.AuthHandler) {
-	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusMovedPermanently, "/login") })
-	r.GET("/csrf", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"token": csrf.GetToken(c)})
-	})
+	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/login") })
+
+	authAPI := r.Group("/api")
+	authAPI.Use(middlewares.AuthRateLimiter())
+	authAPI.GET("/csrf", authHandler.CSRFToken)
+	authAPI.POST("/auth/login", authHandler.LoginAPI)
+	authAPI.POST("/auth/register", authHandler.RegisterAPI)
 
 	auth := r.Group("/")
 	auth.Use(middlewares.AuthRateLimiter())
-	auth.GET("/login", authHandler.Login)
-	auth.POST("/login", authHandler.Login)
-	auth.GET("/register", authHandler.Register)
-	auth.POST("/register", authHandler.Register)
 	auth.GET("/logout", authHandler.Logout)
 	auth.POST("/logout", authHandler.Logout)
 
