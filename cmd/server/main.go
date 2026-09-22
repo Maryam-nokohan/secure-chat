@@ -20,6 +20,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/handlers"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/middlewares"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/routes"
+	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/spa"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
 	natsPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/nats"
@@ -35,6 +36,8 @@ import (
 	userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
 	"github.com/maryam-nokohan/secure-chat/pkg"
 )
+
+const frontendDist = "./frontend/dist"
 
 func main() {
 	pkg.Init()
@@ -153,6 +156,7 @@ func main() {
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/**/*.html")
 	routes.SetupRoutes(r, authHandler, wsHandler, roomHandler, userHandler, adminHandler, contactHandler, settingsHandler, jwtSvc, userSvc, attachmentHandler)
+	spa.Register(r, frontendDist)
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: r,

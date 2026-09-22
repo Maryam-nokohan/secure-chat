@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
+body {
+  font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.font-display { font-family: 'Fraunces Variable', 'Fraunces', serif; }
+
+/* ── Keyframes ── */
+@keyframes spin-slow    { to { transform: rotate(360deg); } }
+@keyframes spin-reverse { to { transform: rotate(-360deg); } }
+@keyframes pulse-glow {
+  0%,100% { opacity: 0.35; }
+  50%      { opacity: 0.85; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes text-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up { animation: slide-up 0.42s cubic-bezier(0.16,1,0.3,1) forwards; }
+.panel-text       { animation: text-in 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+/* Form inputs */
+.form-input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  color: #f0ede8;
+  font-size: 14px;
+  padding: 13px 16px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.form-input::placeholder { color: #6b6880; }
+.form-input:hover:not(:focus) { border-color: rgba(255,255,255,0.14); }
+.form-input:focus {
+  border-color: var(--theme-accent, #8b6fff);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 3px var(--theme-focus, rgba(139,111,255,0.14));
+}
+
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a09cb0;
+  margin-bottom: 8px;
+}
+
+/* Keyboard focus for everything that isn't a text input */
+button:focus-visible,
+a:focus-visible,
+[role='checkbox']:focus-visible {
+  outline: 2px solid var(--theme-accent, #8b6fff);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

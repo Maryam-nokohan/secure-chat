@@ -96,16 +96,7 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-  frontend:
-    build:
-      context: ./frontend
-    container_name: secure-chat-frontend
-    restart: unless-stopped
-    ports:
-      - "5173:80"
-    depends_on:
-      - app
-
+        
 volumes:
   minio_data:
   postgres_data:
