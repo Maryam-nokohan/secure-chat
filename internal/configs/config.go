@@ -19,11 +19,17 @@ type Config struct {
 	GoogleClientSecret string
 	GoogleCallbackURL  string
 
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
+
 	S3Bucket          string
 	S3Region          string
 	S3AccessKeyID     string
 	S3SecretAccessKey string
-	S3Endpoint        string 
+	S3Endpoint        string
 	S3PublicEndpoint  string
 	S3UsePathStyle    bool
 }

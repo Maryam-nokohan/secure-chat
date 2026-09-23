@@ -8,6 +8,7 @@ type SendMessageWSRequest struct {
 type RegisterRequest struct {
 	Username          string `json:"username" form:"username"`
 	Email             string `json:"email" form:"email"`
+	EmailCode         string `json:"email_code" form:"email_code"`
 	Password          string `json:"password" form:"password"`
 	PublicKey         string `json:"public_key" form:"public_key"`
 	WrappedPrivateKey string `json:"wrapped_private_key" form:"wrapped_private_key"`
@@ -18,4 +19,7 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Username string `json:"username" form:"username"`
 	Password string `json:"password" form:"password"`
+}
+type SendEmailCodeRequest struct {
+	Email string `json:"email"`
 }

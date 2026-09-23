@@ -39,6 +39,11 @@ func Load() (*Config, error) {
 		S3Endpoint:         os.Getenv("STORAGE_S3_ENDPOINT"),
 		S3UsePathStyle:     os.Getenv("STORAGE_S3_USE_PATH_STYLE") == "true",
 		S3PublicEndpoint:   os.Getenv("STORAGE_S3_PUBLIC_ENDPOINT"),
+		SMTPHost:           os.Getenv("SMTP_HOST"),
+		SMTPPort:           os.Getenv("SMTP_PORT"),
+		SMTPUsername:       os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:           os.Getenv("SMTP_FROM"),
 	}
 
 	cfg.DSN = fmt.Sprintf(

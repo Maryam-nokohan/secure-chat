@@ -3,6 +3,7 @@ package middlewares
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -56,6 +57,17 @@ func APIRateLimiter() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error": "rate limit exceeded",
 			})
+			return
+		}
+		c.Next()
+	}
+}
+
+func EmailCodeRateLimiter() gin.HandlerFunc {
+	limiter := newIPLimiter(rate.Every(50*time.Second), 5)
+	return func(c *gin.Context) {
+		if !limiter.allow(c.ClientIP()) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many code requests, please slow down"})
 			return
 		}
 		c.Next()

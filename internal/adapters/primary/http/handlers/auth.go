@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -17,10 +18,11 @@ const authCookieMaxAge = 3600 * 24
 type AuthHandler struct {
 	svc      ports.UserServicesI
 	oauthSvc ports.OAuthService
+	verifier ports.EmailVerificationServiceI
 }
 
-func NewAuthHandler(svc ports.UserServicesI, oauthSvc ports.OAuthService) *AuthHandler {
-	return &AuthHandler{svc: svc, oauthSvc: oauthSvc}
+func NewAuthHandler(svc ports.UserServicesI, oauthSvc ports.OAuthService, verifier ports.EmailVerificationServiceI) *AuthHandler {
+	return &AuthHandler{svc: svc, oauthSvc: oauthSvc, verifier: verifier}
 }
 
 func setAuthCookie(c *gin.Context, token string) {
@@ -68,19 +70,19 @@ func (h *AuthHandler) RegisterAPI(c *gin.Context) {
 		return
 	}
 
-	res, err := h.svc.Register(
-		c.Request.Context(),
+	res, err := h.svc.Register(c.Request.Context(),
 		req.Username,
 		req.Email,
 		req.Password,
+		req.EmailCode,
 		req.PublicKey,
 		req.WrappedPrivateKey,
 		req.PrivateKeyIV,
-		req.PrivateKeySalt,
-	)
+		req.PrivateKeySalt)
 	if err != nil {
 		pkg.LogHttpError(err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest,
+			gin.H{"error": err.Error()})
 		return
 	}
 
@@ -132,4 +134,24 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusSeeOther, landingPath(result.Role))
+}
+
+func (h *AuthHandler) SendEmailCode(c *gin.Context) {
+	var req dto.SendEmailCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	if err := h.verifier.SendCode(c.Request.Context(), req.Email); err != nil {
+		switch {
+		case errors.Is(err, ports.ErrVerificationCooldown):
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": err.Error()})
+		case errors.Is(err, ports.ErrVerificationSendFailed):
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "sent", "expires_in": 600})
 }

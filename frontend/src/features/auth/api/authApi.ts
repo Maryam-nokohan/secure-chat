@@ -9,6 +9,7 @@ export interface LoginBody {
 export interface RegisterBody {
   username: string
   email: string
+  email_code: string
   password: string
   public_key: string
   wrapped_private_key: string
@@ -19,4 +20,5 @@ export interface RegisterBody {
 export const authApi = {
   login: (body: LoginBody) => apiPost<AuthSuccess>('/api/auth/login', body),
   register: (body: RegisterBody) => apiPost<AuthSuccess>('/api/auth/register', body),
+requestEmailCode: (email: string) => apiPost<{ status: string }>('/api/auth/register/email-code', { email }),
 }

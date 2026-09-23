@@ -37,6 +37,7 @@ func setupPublicRoutes(r *gin.Engine, authHandler *handlers.AuthHandler) {
 	authAPI.GET("/csrf", authHandler.CSRFToken)
 	authAPI.POST("/auth/login", authHandler.LoginAPI)
 	authAPI.POST("/auth/register", authHandler.RegisterAPI)
+	authAPI.POST("/auth/register/email-code", middlewares.EmailCodeRateLimiter(), authHandler.SendEmailCode)
 
 	auth := r.Group("/")
 	auth.Use(middlewares.AuthRateLimiter())

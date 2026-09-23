@@ -39,6 +39,7 @@ export async function login(username: string, password: string): Promise<AuthSuc
 export interface RegisterInput {
   username: string
   email: string
+  emailCode: string
   password: string
 }
 
@@ -55,6 +56,7 @@ export async function register(input: RegisterInput): Promise<AuthSuccess> {
   const res = await authApi.register({
     username,
     email: input.email.trim(),
+    email_code: input.emailCode.trim(),
     password: input.password,
     public_key: publicKeyPEM,
     wrapped_private_key: wrapped.wrapped,

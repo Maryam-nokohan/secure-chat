@@ -17,19 +17,22 @@ import (
 )
 
 type UserService struct {
-	repo     ports.UserRepository
-	tokenSvc ports.TokenService
+	repo      ports.UserRepository
+	tokenSvc  ports.TokenService
+	verifySvc ports.EmailVerificationServiceI
 }
 
 func NewUserService(
 	repo ports.UserRepository,
 	tokenSvc ports.TokenService,
+	verifySvc ports.EmailVerificationServiceI,
 ) ports.UserServicesI {
 	pkg.LogInfo("Init UserService...")
 
 	return &UserService{
-		repo:     repo,
-		tokenSvc: tokenSvc,
+		repo:      repo,
+		tokenSvc:  tokenSvc,
+		verifySvc: verifySvc,
 	}
 }
 
@@ -38,6 +41,7 @@ func (s *UserService) Register(
 	name string,
 	email string,
 	password string,
+	emailCode string,
 	publicKey string,
 	wrappedPrivateKey string,
 	privateKeyIV string,
@@ -69,6 +73,9 @@ func (s *UserService) Register(
 	existingUser, err = s.repo.FindUserByEmail(ctx, email)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("an account with this email already exists")
+	}
+	if err := s.verifySvc.VerifyCode(ctx, email, emailCode); err != nil {
+		return nil, err
 	}
 
 	hash, err := pkg.HashPassword(password)

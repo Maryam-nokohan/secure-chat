@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
     email                VARCHAR(255) DEFAULT '',
     provider             VARCHAR(20)  DEFAULT '',
     provider_id          VARCHAR(255) DEFAULT '',
+    email_verified       BOOLEAN      NOT NULL DEFAULT FALSE,
 
     role                 VARCHAR(20)  NOT NULL DEFAULT 'user',
     deleted_at           TIMESTAMPTZ,
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at           TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
 -- passhash is nullable because OAuth-only accounts never set one.
 ALTER TABLE users ALTER COLUMN passhash DROP NOT NULL;
 

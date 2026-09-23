@@ -74,7 +74,12 @@ services:
       mc alias set local http://minio:9000 minioadmin minioadmin &&
       mc mb -p local/secure-chat-test || true
       "
-
+  mailpit:
+    image: axllent/mailpit
+    container_name: secure-chat-mailpit
+    ports:
+      - "127.0.0.1:8025:8025"   # inbox UI
+      - "127.0.0.1:1025:1025"   # SMTP
   app:
     build: .
     container_name: secure-chat-app

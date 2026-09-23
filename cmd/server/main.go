@@ -23,6 +23,7 @@ import (
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/http/spa"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/auth"
+	emailAdapter "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/email"
 	natsPkg "github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/nats"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/secondary/postgres/migrations"
@@ -34,6 +35,8 @@ import (
 	contactApp "github.com/maryam-nokohan/secure-chat/internal/core/application/contact"
 	msgApp "github.com/maryam-nokohan/secure-chat/internal/core/application/message"
 	userApp "github.com/maryam-nokohan/secure-chat/internal/core/application/user"
+	verificationApp "github.com/maryam-nokohan/secure-chat/internal/core/application/verification.go"
+	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
@@ -94,7 +97,22 @@ func main() {
 	oauthSvc := auth.NewGothOAuthService(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleCallbackURL)
 
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret)
-	userSvc := userApp.NewUserService(userRepo, jwtSvc)
+
+	var mailer ports.EmailSender
+	if cfg.SMTPHost == "" {
+		pkg.LogInfo("SMTP_HOST not set: verification codes will be logged (dev only)")
+		mailer = emailAdapter.NewConsoleSender()
+	} else {
+		mailer, err = emailAdapter.NewSMTPSender(emailAdapter.SMTPConfig{
+			Host: cfg.SMTPHost, Port: cfg.SMTPPort,
+			Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
+		})
+		if err != nil {
+			pkg.LogFattal(err.Error())
+		}
+	}
+	verificationSvc := verificationApp.NewService(redisPkg.NewVerificationStore(rdb), mailer, userRepo, []byte(cfg.JWTSecret))
+	userSvc := userApp.NewUserService(userRepo, jwtSvc, verificationSvc)
 	chatSvc := chatApp.NewChatService(chatRepo, msgRepo, cache, broker)
 	msgSvc := msgApp.NewMessageService(msgRepo, userRepo, cache)
 
@@ -133,7 +151,7 @@ func main() {
 	attachmentHandler := handlers.NewAttachmentHandler(chatSvc, attachmentRepo, fileStorage)
 	settingsHandler := handlers.NewSettingsHandler(userRepo, fileStorage)
 	contactHandler := handlers.NewContactHandler(contactSvc)
-	authHandler := handlers.NewAuthHandler(userSvc, oauthSvc)
+	authHandler := handlers.NewAuthHandler(userSvc, oauthSvc , verificationSvc)
 	wsHandler := websocket.NewHandler(hub, msgSvc, broker, chatSvc)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
 	userHandler := handlers.NewUserHandler(userRepo)
