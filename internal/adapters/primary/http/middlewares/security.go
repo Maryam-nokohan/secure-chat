@@ -10,10 +10,11 @@ func SecurityHeaders() gin.HandlerFunc {
 
 		c.Header("Content-Security-Policy",
 			"default-src 'self'; "+
-				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "+
 				"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "+
-				"font-src 'self' https://cdn.jsdelivr.net; "+
+				"font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "+
 				"img-src 'self' http://localhost:9000 http://127.0.0.1:9000 data: blob:; "+
+				"media-src 'self' http://localhost:9000 http://127.0.0.1:9000 blob:; "+
 				"connect-src 'self' ws://localhost:8080 wss://localhost:8080 ws://127.0.0.1:8080 wss://127.0.0.1:8080;")
 
 		c.Next()

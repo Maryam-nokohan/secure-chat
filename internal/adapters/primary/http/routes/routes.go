@@ -60,20 +60,6 @@ func setupProtectedRoutes(
 ) {
 	page := r.Group("/")
 	page.Use(middlewares.AuthMiddlewarePage(jwtSvc))
-	page.GET("/chat", func(c *gin.Context) {
-		username, _ := c.Get("username")
-		userID, _ := c.Get("userID")
-		c.HTML(200, "chat.html", gin.H{
-			"username": username, "userID": userID, "csrfToken": csrf.GetToken(c),
-		})
-	})
-	page.GET("/settings", func(c *gin.Context) {
-		username, _ := c.Get("username")
-		userID, _ := c.Get("userID")
-		c.HTML(200, "settings.html", gin.H{
-			"username": username, "userID": userID, "csrfToken": csrf.GetToken(c),
-		})
-	})
 	page.GET("/setup-encryption", userHandler.SetupEncryptionPage)
 	page.POST("/setup-encryption", func(c *gin.Context) { userHandler.SetupEncryptionSubmit(c, userSvc) })
 

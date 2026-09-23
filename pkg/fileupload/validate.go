@@ -7,7 +7,6 @@ import (
 )
 
 type Rule struct {
-
 	AllowedTypes map[string]string
 	MaxSizeBytes int64
 }
@@ -17,7 +16,6 @@ var (
 	ErrEmptyFile      = errors.New("file is empty")
 	ErrDisallowedType = errors.New("file type is not allowed")
 )
-
 
 var AvatarRule = Rule{
 	MaxSizeBytes: 5 << 20, // 5MB
@@ -29,7 +27,7 @@ var AvatarRule = Rule{
 }
 
 var ChatAttachmentRule = Rule{
-	MaxSizeBytes: 25 << 20, // 25MB
+	MaxSizeBytes: 100 << 20, // 100MB (audio/video need more headroom than the old 25MB)
 	AllowedTypes: map[string]string{
 		"image/png":       "png",
 		"image/jpeg":      "jpg",
@@ -37,6 +35,14 @@ var ChatAttachmentRule = Rule{
 		"image/gif":       "gif",
 		"application/pdf": "pdf",
 		"text/plain":      "txt",
+		"audio/mpeg":      "mp3",
+		"audio/wav":       "wav",
+		"audio/ogg":       "ogg",
+		"audio/webm":      "weba",
+		"video/mp4":       "mp4",
+		"video/webm":      "webm",
+		"video/ogg":       "ogv",
+		"video/quicktime": "mov",
 	},
 }
 
