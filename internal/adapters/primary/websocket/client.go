@@ -23,6 +23,13 @@ type Client struct {
 	ChatSvc  ports.ChatServiceI
 }
 
+func (c *Client) publish(payload []byte) {
+	if err := c.Broker.Publish(context.Background(), message.ChatSubject, payload); err != nil {
+		pkg.LogError(err)
+		c.Hub.BroadcastToRoom(c.Room, payload)
+	}
+}
+
 func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 	defer func() {
 		c.Hub.Unregister <- c
@@ -86,7 +93,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 				continue
 			}
 			if incoming.Ciphertext == "" || incoming.Nonce == "" || len(incoming.Keys) == 0 {
-				continue 
+				continue
 			}
 
 			roomID := uuid.FromStringOrNil(c.Room)
@@ -101,7 +108,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 			}
 
 			out := message.PubSubMessage{
-				Type: "message", SenderID: c.ID, Username: c.Username, RoomID: c.Room,
+				Type: "message", ID: saved.ID.String(), SenderID: c.ID, Username: c.Username, RoomID: c.Room,
 				Ciphertext: incoming.Ciphertext, Nonce: incoming.Nonce, Keys: incoming.Keys,
 				Time: saved.CreatedAt.Format(time.RFC3339),
 			}
@@ -109,11 +116,70 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 			if err != nil {
 				continue
 			}
+			c.publish(payload)
 
-			if pubErr := c.Broker.Publish(context.Background(), message.ChatSubject, payload); pubErr != nil {
-				pkg.LogError(pubErr)
-				c.Hub.BroadcastToRoom(c.Room, payload)
+		case "edit":
+			if c.Room == "" {
+				continue
 			}
+			msgID, err := uuid.FromString(incoming.MessageID)
+			if err != nil {
+				continue
+			}
+			if incoming.Ciphertext == "" || incoming.Nonce == "" || len(incoming.Keys) == 0 {
+				continue
+			}
+			senderID := uuid.FromStringOrNil(c.ID)
+			if err := msgSvc.EditMessage(
+				context.Background(), msgID, senderID,
+				incoming.Ciphertext, incoming.Nonce, incoming.Keys,
+			); err != nil {
+				denied, _ := json.Marshal(map[string]string{"type": "action_denied", "reason": err.Error()})
+				select {
+				case c.Send <- denied:
+				default:
+				}
+				continue
+			}
+
+			out := message.PubSubMessage{
+				Type: "edit", MessageID: incoming.MessageID, SenderID: c.ID, Username: c.Username, RoomID: c.Room,
+				Ciphertext: incoming.Ciphertext, Nonce: incoming.Nonce, Keys: incoming.Keys,
+				Time: time.Now().UTC().Format(time.RFC3339),
+			}
+			payload, err := json.Marshal(out)
+			if err != nil {
+				continue
+			}
+			c.publish(payload)
+
+		case "delete":
+			if c.Room == "" {
+				continue
+			}
+			msgID, err := uuid.FromString(incoming.MessageID)
+			if err != nil {
+				continue
+			}
+			senderID := uuid.FromStringOrNil(c.ID)
+			if err := msgSvc.DeleteMessage(context.Background(), msgID, senderID); err != nil {
+				denied, _ := json.Marshal(map[string]string{"type": "action_denied", "reason": err.Error()})
+				select {
+				case c.Send <- denied:
+				default:
+				}
+				continue
+			}
+
+			out := message.PubSubMessage{
+				Type: "delete", MessageID: incoming.MessageID, SenderID: c.ID, RoomID: c.Room,
+				Time: time.Now().UTC().Format(time.RFC3339),
+			}
+			payload, err := json.Marshal(out)
+			if err != nil {
+				continue
+			}
+			c.publish(payload)
 		}
 	}
 }
