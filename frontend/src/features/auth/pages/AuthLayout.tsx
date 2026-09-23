@@ -18,6 +18,12 @@ const TAB_PATH: Record<AuthTab, string> = { login: '/login', register: '/registe
 /**
  * Shared shell for /login and /register: theme, split-screen layout and the
  * star-portal transition. The pages themselves render through <Outlet>.
+ *
+ * NOTE: this page's theme variables (--theme-accent, --theme-focus, etc.) are
+ * applied to `rootRef`, not `document.documentElement`. The chat app has its
+ * own app-wide ThemeProvider (see shared/theme) that also owns those variable
+ * names; scoping them here keeps the two independent so visiting /login never
+ * leaves stale colors behind for /chat, and vice versa.
  */
 export function AuthLayout() {
   const { pathname } = useLocation()
@@ -28,11 +34,13 @@ export function AuthLayout() {
   const [portalPhase, setPortalPhase] = useState<PortalPhase>('idle')
   const busy = useRef(false)
   const timers = useRef<number[]>([])
+  const rootRef = useRef<HTMLDivElement>(null)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const theme = THEMES[themeKey]
 
   useEffect(() => {
-    const root = document.documentElement
+    const root = rootRef.current
+    if (!root) return
     root.style.background = theme.bg
     root.style.setProperty('--theme-accent', theme.accent)
     root.style.setProperty('--theme-focus', theme.accentFocus)
@@ -66,7 +74,7 @@ export function AuthLayout() {
 
   return (
     <AuthThemeContext.Provider value={theme}>
-      <div style={{ width: '100%', height: '100dvh', overflow: 'hidden', position: 'relative', background: theme.bg }}>
+      <div ref={rootRef} style={{ width: '100%', height: '100dvh', overflow: 'hidden', position: 'relative', background: theme.bg }}>
         <ThemeSelector current={themeKey} onChange={setThemeKey} />
         <PortalOverlay phase={portalPhase} />
 
