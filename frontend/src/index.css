@@ -1,11 +1,16 @@
 @import 'tailwindcss';
 
-* { scrollbar-width: none; }
-*::-webkit-scrollbar { display: none; }
+* { scrollbar-width: thin; scrollbar-color: var(--surface-border-strong, rgba(255,255,255,0.14)) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: var(--surface-border-strong, rgba(255,255,255,0.14)); border-radius: 99px; }
+*::-webkit-scrollbar-track { background: transparent; }
 
+html, body { height: 100%; }
 body {
   font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: var(--surface-bg, #0a0a0f);
+  color: var(--text-primary, #f0ede8);
 }
 .font-display { font-family: 'Fraunces Variable', 'Fraunces', serif; }
 
@@ -24,27 +29,49 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes drawer-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
-.animate-slide-up { animation: slide-up 0.42s cubic-bezier(0.16,1,0.3,1) forwards; }
-.panel-text       { animation: text-in 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-slide-up  { animation: slide-up 0.42s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-modal-in  { animation: modal-in 0.18s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-bubble-in { animation: bubble-in 0.2s cubic-bezier(0.16,1,0.3,1) forwards; }
+.animate-fade-in   { animation: fade-in 0.15s ease forwards; }
+.panel-text        { animation: text-in 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
 
 /* Form inputs */
 .form-input {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--surface-hover, rgba(255,255,255,0.04));
+  border: 1px solid var(--surface-border, rgba(255,255,255,0.07));
   border-radius: 10px;
-  color: #f0ede8;
+  color: var(--text-primary, #f0ede8);
   font-size: 14px;
   padding: 13px 16px;
   width: 100%;
   outline: none;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
-.form-input::placeholder { color: #6b6880; }
-.form-input:hover:not(:focus) { border-color: rgba(255,255,255,0.14); }
+.form-input::placeholder { color: var(--text-tertiary, #6b6880); }
+.form-input:hover:not(:focus) { border-color: var(--surface-border-strong, rgba(255,255,255,0.14)); }
 .form-input:focus {
   border-color: var(--theme-accent, #8b6fff);
-  background: rgba(255,255,255,0.06);
   box-shadow: 0 0 0 3px var(--theme-focus, rgba(139,111,255,0.14));
 }
 
@@ -54,14 +81,14 @@ body {
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #a09cb0;
+  color: var(--text-secondary, #a09cb0);
   margin-bottom: 8px;
 }
 
-/* Keyboard focus for everything that isn't a text input */
 button:focus-visible,
 a:focus-visible,
-[role='checkbox']:focus-visible {
+[role='checkbox']:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--theme-accent, #8b6fff);
   outline-offset: 2px;
 }
