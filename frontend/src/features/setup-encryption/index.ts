@@ -1,0 +1,1 @@
+export { setupEncryptionRoutes } from './routes'

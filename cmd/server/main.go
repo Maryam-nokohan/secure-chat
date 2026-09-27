@@ -151,10 +151,10 @@ func main() {
 	attachmentHandler := handlers.NewAttachmentHandler(chatSvc, attachmentRepo, fileStorage)
 	settingsHandler := handlers.NewSettingsHandler(userRepo, fileStorage)
 	contactHandler := handlers.NewContactHandler(contactSvc)
-	authHandler := handlers.NewAuthHandler(userSvc, oauthSvc , verificationSvc)
+	authHandler := handlers.NewAuthHandler(userSvc, oauthSvc, verificationSvc)
 	wsHandler := websocket.NewHandler(hub, msgSvc, broker, chatSvc)
 	roomHandler := handlers.NewRoomHandler(chatSvc, msgSvc, hub)
-	userHandler := handlers.NewUserHandler(userRepo)
+	userHandler := handlers.NewUserHandler(userRepo, verificationSvc)
 	adminHandler := handlers.NewAdminHandler(adminSvc, hub)
 
 	gin.SetMode(gin.ReleaseMode)

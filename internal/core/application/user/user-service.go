@@ -226,7 +226,7 @@ func (s *UserService) issueOAuthToken(u *user.User) (*auth.AuthResult, bool, boo
 	}, false, needsKeys, nil
 }
 
-func (s *UserService) SetupEncryptionKeys(ctx context.Context, userIDStr, publicKey, wrappedPrivateKey, privateKeyIV, privateKeySalt string) error {
+func (s *UserService) SetupEncryptionKeys(ctx context.Context, userIDStr, emailCode, publicKey, wrappedPrivateKey, privateKeyIV, privateKeySalt string) error {
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
 		return errors.New("invalid user id")
@@ -237,6 +237,12 @@ func (s *UserService) SetupEncryptionKeys(ctx context.Context, userIDStr, public
 	}
 	if u.PublicKey != "" {
 		return errors.New("encryption keys already configured")
+	}
+	if u.Email == "" {
+		return errors.New("no email on file to verify")
+	}
+	if err := s.verifySvc.VerifyCode(ctx, u.Email, emailCode); err != nil {
+		return err
 	}
 	if err := pkg.ValidateRSAPublicKey(publicKey); err != nil {
 		return err

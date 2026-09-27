@@ -7,13 +7,16 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
+
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
+
 func IsUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
+
 func ValidateEmail(email string) error {
 	email = strings.TrimSpace(email)
 
@@ -31,4 +34,12 @@ func ValidateEmail(email string) error {
 	}
 
 	return nil
+}
+
+func MaskEmail(email string) string {
+	at := strings.IndexByte(email, '@')
+	if at <= 1 {
+		return email
+	}
+	return email[:1] + strings.Repeat("*", at-1) + email[at:]
 }

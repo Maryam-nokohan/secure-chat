@@ -26,5 +26,6 @@ type VerificationStore interface {
 
 type EmailVerificationServiceI interface {
 	SendCode(ctx context.Context, email string) error
-	VerifyCode(ctx context.Context, email, code string) error 
+	SendCodeToExistingAccount(ctx context.Context, email string) error
+	VerifyCode(ctx context.Context, email, code string) error
 }

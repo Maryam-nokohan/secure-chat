@@ -43,13 +43,15 @@ func (s *Service) hash(email, code string) string {
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-func (s *Service) SendCode(ctx context.Context, email string) error {
+func (s *Service) sendCode(ctx context.Context, email string, requireNewAccount bool) error {
 	email = pkg.NormalizeEmail(email)
 	if err := pkg.ValidateEmail(email); err != nil {
 		return err
 	}
-	if existing, err := s.userRepo.FindUserByEmail(ctx, email); err == nil && existing != nil {
-		return errors.New("an account with this email already exists")
+	if requireNewAccount {
+		if existing, err := s.userRepo.FindUserByEmail(ctx, email); err == nil && existing != nil {
+			return errors.New("an account with this email already exists")
+		}
 	}
 
 	code, err := pkg.GenerateNumericCode(6)
@@ -65,6 +67,14 @@ func (s *Service) SendCode(ctx context.Context, email string) error {
 		return ports.ErrVerificationSendFailed
 	}
 	return nil
+}
+
+func (s *Service) SendCode(ctx context.Context, email string) error {
+	return s.sendCode(ctx, email, true)
+}
+
+func (s *Service) SendCodeToExistingAccount(ctx context.Context, email string) error {
+	return s.sendCode(ctx, email, false)
 }
 
 func (s *Service) VerifyCode(ctx context.Context, email, code string) error {

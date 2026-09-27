@@ -59,11 +59,6 @@ func setupProtectedRoutes(
 	userSvc ports.UserServicesI,
 	attachmentHandler *handlers.AttachmentHandler,
 ) {
-	page := r.Group("/")
-	page.Use(middlewares.AuthMiddlewarePage(jwtSvc))
-	page.GET("/setup-encryption", userHandler.SetupEncryptionPage)
-	page.POST("/setup-encryption", func(c *gin.Context) { userHandler.SetupEncryptionSubmit(c, userSvc) })
-
 	api := r.Group("/")
 	api.Use(middlewares.AuthMiddleware(jwtSvc))
 	api.Use(middlewares.APIRateLimiter())
@@ -89,6 +84,9 @@ func setupProtectedRoutes(
 	api.GET("/avatar/:id", settingsHandler.ServeAvatar)
 	api.POST("/rooms/:id/attachments", attachmentHandler.Upload)
 	api.GET("/rooms/:id/attachments/:attachmentId", attachmentHandler.Download)
+
+	api.POST("/api/setup-encryption/send-code", middlewares.EmailCodeRateLimiter(), userHandler.SendSetupEmailCode)
+	api.POST("/api/setup-encryption", func(c *gin.Context) { userHandler.SubmitSetupEncryption(c, userSvc) })
 }
 
 func setupAdminRoutes(r *gin.Engine, adminHandler *handlers.AdminHandler, jwtSvc ports.TokenService) {

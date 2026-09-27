@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
-	csrf "github.com/utrack/gin-csrf"
 
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
 	"github.com/maryam-nokohan/secure-chat/pkg"
@@ -13,10 +13,11 @@ import (
 
 type UserHandler struct {
 	userRepo ports.UserRepository
+	verifier ports.EmailVerificationServiceI
 }
 
-func NewUserHandler(userRepo ports.UserRepository) *UserHandler {
-	return &UserHandler{userRepo: userRepo}
+func NewUserHandler(userRepo ports.UserRepository, verifier ports.EmailVerificationServiceI) *UserHandler {
+	return &UserHandler{userRepo: userRepo, verifier: verifier}
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
@@ -64,6 +65,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		"avatar_url": avatarURL,
 	})
 }
+
 func (h *UserHandler) RotatePublicKey(c *gin.Context) {
 	userIDStr, _ := c.Get("userID")
 	userID, err := uuid.FromString(userIDStr.(string))
@@ -127,52 +129,61 @@ func (h *UserHandler) GetEncryptionKeyBackup(c *gin.Context) {
 	})
 }
 
-func (h *UserHandler) SetupEncryptionPage(c *gin.Context) {
-	username, _ := c.Get("username")
-	c.HTML(http.StatusOK, "setup-encryption.html", gin.H{
-		"csrfToken": csrf.GetToken(c),
-		"username":  username,
-	})
+func (h *UserHandler) SendSetupEmailCode(c *gin.Context) {
+	userIDStr, _ := c.Get("userID")
+	userID, err := uuid.FromString(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user"})
+		return
+	}
+	u, err := h.userRepo.FindUserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if u.PublicKey != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "encryption keys are already configured for this account"})
+		return
+	}
+	if u.Email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no email on file for this account"})
+		return
+	}
+	if err := h.verifier.SendCodeToExistingAccount(c.Request.Context(), u.Email); err != nil {
+		switch {
+		case errors.Is(err, ports.ErrVerificationCooldown):
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": err.Error()})
+		case errors.Is(err, ports.ErrVerificationSendFailed):
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "sent", "expires_in": 600, "email": pkg.MaskEmail(u.Email)})
 }
 
-func (h *UserHandler) SetupEncryptionSubmit(c *gin.Context, userSvc ports.UserServicesI) {
+func (h *UserHandler) SubmitSetupEncryption(c *gin.Context, userSvc ports.UserServicesI) {
 	userIDStr, _ := c.Get("userID")
-	username, _ := c.Get("username")
 
 	var req struct {
-		PublicKey         string `form:"public_key" json:"public_key"`
-		WrappedPrivateKey string `form:"wrapped_private_key" json:"wrapped_private_key"`
-		PrivateKeyIV      string `form:"private_key_iv" json:"private_key_iv"`
-		PrivateKeySalt    string `form:"private_key_salt" json:"private_key_salt"`
+		EmailCode         string `json:"email_code" binding:"required"`
+		PublicKey         string `json:"public_key" binding:"required"`
+		WrappedPrivateKey string `json:"wrapped_private_key" binding:"required"`
+		PrivateKeyIV      string `json:"private_key_iv" binding:"required"`
+		PrivateKeySalt    string `json:"private_key_salt" binding:"required"`
 	}
-	if err := bindAuthBody(c, &req); err != nil {
-		if wantsJSON(c) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid form"})
-			return
-		}
-		c.HTML(http.StatusBadRequest, "setup-encryption.html", gin.H{
-			"error": "invalid form", "csrfToken": csrf.GetToken(c), "username": username,
-		})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	if err := userSvc.SetupEncryptionKeys(
-		c.Request.Context(), userIDStr.(string),
+		c.Request.Context(), userIDStr.(string), req.EmailCode,
 		req.PublicKey, req.WrappedPrivateKey, req.PrivateKeyIV, req.PrivateKeySalt,
 	); err != nil {
-		if wantsJSON(c) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.HTML(http.StatusBadRequest, "setup-encryption.html", gin.H{
-			"error": err.Error(), "csrfToken": csrf.GetToken(c), "username": username,
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	if wantsJSON(c) {
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-		return
-	}
-	c.Redirect(http.StatusSeeOther, "/chat")
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
