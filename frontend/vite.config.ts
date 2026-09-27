@@ -5,14 +5,10 @@ import { fileURLToPath } from 'node:url'
 
 const BACKEND = 'http://localhost:8080'
 
-// Everything the Go backend still owns as HTML pages, plus its JSON/WS APIs.
-// /chat and /settings used to be here but now live in the React SPA
-// (frontend/src/features/chat) — do NOT add those paths back.
 const backendPaths = [
   '/api',
-  '/auth', // Google OAuth begin + callback
+  '/auth',
   '/logout',
-  '/setup-encryption',
   '/admin',
   '/static',
   '/rooms',

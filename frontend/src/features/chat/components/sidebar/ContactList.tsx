@@ -1,6 +1,8 @@
 import { Avatar } from '@/shared/ui/Avatar'
 import { useChat } from '../../state/ChatProvider'
 
+
+
 export function ContactList() {
   const { contacts, onlineUsers, activeRoomId, selectRoom, respondContact } = useChat()
 
