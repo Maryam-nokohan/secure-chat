@@ -94,35 +94,35 @@ func (s *MessageService) GetHistory(ctx context.Context, roomID, userID uuid.UUI
 	return result, nil
 }
 
-func (s *MessageService) DeleteMessage(ctx context.Context, msgID, callerID uuid.UUID) error {
+func (s *MessageService) DeleteMessage(ctx context.Context, msgID, callerID uuid.UUID) (uuid.UUID, error) {
 	msg, err := s.msgRepo.GetMessageByID(ctx, msgID)
 	if err != nil {
-		return err
+		return uuid.UUID{}, err
 	}
 	if msg.SenderID != callerID {
-		return errors.New("forbidden: you did not send this message")
+		return uuid.UUID{}, errors.New("forbidden: you did not send this message")
 	}
 	if err := s.msgRepo.DeleteMessage(ctx, msgID); err != nil {
-		return err
+		return uuid.UUID{}, err
 	}
 	_ = s.cache.Delete(ctx, historyKey(msg.RoomID))
-	return nil
+	return msg.RoomID, nil
 }
 
-func (s *MessageService) EditMessage(ctx context.Context, msgID, callerID uuid.UUID, ciphertext, nonce string, encryptedKeys map[string]string) error {
+func (s *MessageService) EditMessage(ctx context.Context, msgID, callerID uuid.UUID, ciphertext, nonce string, encryptedKeys map[string]string) (uuid.UUID, error) {
 	if ciphertext == "" || nonce == "" || len(encryptedKeys) == 0 {
-		return errors.New("edited message must be encrypted with at least one recipient key")
+		return uuid.UUID{}, errors.New("edited message must be encrypted with at least one recipient key")
 	}
 	msg, err := s.msgRepo.GetMessageByID(ctx, msgID)
 	if err != nil {
-		return err
+		return uuid.UUID{}, err
 	}
 	if msg.SenderID != callerID {
-		return errors.New("forbidden: you did not send this message")
+		return uuid.UUID{}, errors.New("forbidden: you did not send this message")
 	}
 	if err := s.msgRepo.EditMessage(ctx, msgID, ciphertext, nonce, keysToRows(msgID, encryptedKeys)); err != nil {
-		return err
+		return uuid.UUID{}, err
 	}
 	_ = s.cache.Delete(ctx, historyKey(msg.RoomID))
-	return nil
+	return msg.RoomID, nil
 }

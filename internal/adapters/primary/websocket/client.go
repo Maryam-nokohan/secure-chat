@@ -130,10 +130,11 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 				continue
 			}
 			senderID := uuid.FromStringOrNil(c.ID)
-			if err := msgSvc.EditMessage(
+			realRoomID, err := msgSvc.EditMessage(
 				context.Background(), msgID, senderID,
 				incoming.Ciphertext, incoming.Nonce, incoming.Keys,
-			); err != nil {
+			)
+			if err != nil {
 				denied, _ := json.Marshal(map[string]string{"type": "action_denied", "reason": err.Error()})
 				select {
 				case c.Send <- denied:
@@ -143,7 +144,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 			}
 
 			out := message.PubSubMessage{
-				Type: "edit", MessageID: incoming.MessageID, SenderID: c.ID, Username: c.Username, RoomID: c.Room,
+				Type: "edit", MessageID: incoming.MessageID, SenderID: c.ID, Username: c.Username, RoomID: realRoomID.String(),
 				Ciphertext: incoming.Ciphertext, Nonce: incoming.Nonce, Keys: incoming.Keys,
 				Time: time.Now().UTC().Format(time.RFC3339),
 			}
@@ -162,7 +163,8 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 				continue
 			}
 			senderID := uuid.FromStringOrNil(c.ID)
-			if err := msgSvc.DeleteMessage(context.Background(), msgID, senderID); err != nil {
+			realRoomID, err := msgSvc.DeleteMessage(context.Background(), msgID, senderID)
+			if err != nil {
 				denied, _ := json.Marshal(map[string]string{"type": "action_denied", "reason": err.Error()})
 				select {
 				case c.Send <- denied:
@@ -172,7 +174,7 @@ func (c *Client) ReadPump(msgSvc ports.MessageServiceI) {
 			}
 
 			out := message.PubSubMessage{
-				Type: "delete", MessageID: incoming.MessageID, SenderID: c.ID, RoomID: c.Room,
+				Type: "delete", MessageID: incoming.MessageID, SenderID: c.ID, RoomID: realRoomID.String(),
 				Time: time.Now().UTC().Format(time.RFC3339),
 			}
 			payload, err := json.Marshal(out)

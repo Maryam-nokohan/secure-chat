@@ -590,7 +590,7 @@ func TestHub_PresenceEventFormat(t *testing.T) {
 	hub.Clients[existing.ID] = existing
 	hub.mu.Unlock()
 
-	hub.broadcastPresence(newClient, true)
+	hub.broadcastPresence(newClient, true , []string{"room-a"})
 
 	raw := waitForMessage(t, existing.Send, time.Second)
 
@@ -645,7 +645,7 @@ func TestHub_PresenceOnlineOnlyReachesUsersInSameRoom(t *testing.T) {
 	hub.Clients[existingB.ID] = existingB
 	hub.mu.Unlock()
 
-	hub.broadcastPresence(newClient, true)
+	hub.broadcastPresence(newClient, true, []string{"room-a"})
 
 	_ = waitForMessage(t, existingA.Send, time.Second)
 
@@ -663,7 +663,7 @@ func TestHub_PresenceOnlineDoesNotSendEventToTheJoiningClient(t *testing.T) {
 	hub.Clients[client.ID] = client
 	hub.mu.Unlock()
 
-	hub.broadcastPresence(client, true)
+	hub.broadcastPresence(client, true, []string{"room-a"})
 
 	assertNoMessage(t, client.Send, 50*time.Millisecond)
 }
@@ -682,7 +682,7 @@ func TestHub_PresenceOfflineReachesRemainingRoomMembers(t *testing.T) {
 	hub.Clients[bob.ID] = bob
 	hub.mu.Unlock()
 
-	hub.broadcastPresence(alice, false)
+	hub.broadcastPresence(alice, false, []string{"room-a"})
 
 	raw := waitForMessage(t, bob.Send, time.Second)
 
@@ -727,7 +727,7 @@ func TestHub_PresenceOfflineReachesUsersInOtherRooms(t *testing.T) {
 	hub.Clients[bob.ID] = bob
 	hub.mu.Unlock()
 
-	hub.broadcastPresence(alice, false)
+	hub.broadcastPresence(alice, false, []string{"room-a"})
 
 	raw := waitForMessage(t, bob.Send, time.Second)
 
