@@ -9,6 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/maryam-nokohan/secure-chat/internal/adapters/primary/websocket"
 	"github.com/maryam-nokohan/secure-chat/internal/core/ports"
+	"github.com/maryam-nokohan/secure-chat/pkg"
 )
 
 type RoomHandler struct {
@@ -39,6 +40,11 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 	room, err := h.chatSvc.CreateRoom(c.Request.Context(), creatorID, req.Name)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.chatSvc.JoinRoom(c.Request.Context(), room.ID, creatorID, username.(string)); err != nil {
+		pkg.LogError(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "room was created but you could not be added to it; try rejoining with the invite code"})
 		return
 	}
 	_ = h.chatSvc.JoinRoom(c.Request.Context(), room.ID, creatorID, username.(string))

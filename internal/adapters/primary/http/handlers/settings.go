@@ -132,8 +132,6 @@ func (h *SettingsHandler) UploadAvatar(c *gin.Context) {
 		_ = h.storage.Delete(c.Request.Context(), oldPath)
 	}
 
-	// Indirect URL keyed by user id — the client never sees or supplies a
-	// storage path, so there's nothing to path-traverse or guess.
 	c.JSON(http.StatusOK, gin.H{"avatar_url": "/avatar/" + u.ID.String()})
 }
 
