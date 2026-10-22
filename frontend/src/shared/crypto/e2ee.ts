@@ -24,18 +24,49 @@ export interface EncryptedMessage {
   rawKey: ArrayBuffer
 }
 
-/** Encrypts plaintext with a fresh AES-256-GCM key; the raw key still needs wrapping per recipient. */
-export async function encryptMessage(plaintext: string): Promise<EncryptedMessage> {
+/** Generates a fresh AES-256-GCM key, returning both the usable key and its raw bytes for wrapping. */
+export async function generateAesKey(): Promise<{ aesKey: CryptoKey; rawKey: ArrayBuffer }> {
   const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
+  const rawKey = await crypto.subtle.exportKey('raw', aesKey)
+  return { aesKey, rawKey }
+}
+
+/** Encrypts plaintext with an already-derived AES-GCM key (fresh random nonce each call). */
+export async function encryptWithKey(aesKey: CryptoKey, plaintext: string): Promise<{ ciphertext: string; nonce: string }> {
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(plaintext))
-  const rawKey = await crypto.subtle.exportKey('raw', aesKey)
-  return { ciphertext: b64encode(ciphertext), nonce: b64encode(iv.buffer), rawKey }
+  return { ciphertext: b64encode(ciphertext), nonce: b64encode(iv.buffer) }
+}
+
+/** Encrypts binary data with an already-derived AES-GCM key (fresh random nonce each call). */
+export async function encryptBytesWithKey(aesKey: CryptoKey, data: ArrayBuffer): Promise<{ ciphertext: ArrayBuffer; nonce: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, data)
+  return { ciphertext, nonce: b64encode(iv.buffer) }
+}
+
+/** Decrypts binary data with an already-derived AES-GCM key. */
+export async function decryptBytesWithKey(aesKey: CryptoKey, ciphertext: ArrayBuffer, nonceB64: string): Promise<ArrayBuffer> {
+  const iv = new Uint8Array(b64decode(nonceB64))
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext)
+}
+
+/** Encrypts plaintext with a fresh AES-256-GCM key; the raw key still needs wrapping per recipient. */
+export async function encryptMessage(plaintext: string): Promise<EncryptedMessage> {
+  const { aesKey, rawKey } = await generateAesKey()
+  const { ciphertext, nonce } = await encryptWithKey(aesKey, plaintext)
+  return { ciphertext, nonce, rawKey }
 }
 
 export async function encryptKeyForRecipient(rawAesKey: ArrayBuffer, recipientPublicKey: CryptoKey): Promise<string> {
   const encrypted = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, recipientPublicKey, rawAesKey)
   return b64encode(encrypted)
+}
+
+/** Unwraps a per-recipient wrapped AES key back into a usable CryptoKey. */
+export async function unwrapAesKey(encryptedKeyB64: string, myPrivateKey: CryptoKey): Promise<CryptoKey> {
+  const rawAesKey = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, myPrivateKey, b64decode(encryptedKeyB64))
+  return crypto.subtle.importKey('raw', rawAesKey, 'AES-GCM', false, ['decrypt'])
 }
 
 export async function decryptMessage(
@@ -44,8 +75,7 @@ export async function decryptMessage(
   encryptedKeyB64: string,
   myPrivateKey: CryptoKey,
 ): Promise<string> {
-  const rawAesKey = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, myPrivateKey, b64decode(encryptedKeyB64))
-  const aesKey = await crypto.subtle.importKey('raw', rawAesKey, 'AES-GCM', false, ['decrypt'])
+  const aesKey = await unwrapAesKey(encryptedKeyB64, myPrivateKey)
   const iv = new Uint8Array(b64decode(nonceB64))
   const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, b64decode(ciphertextB64))
   return new TextDecoder().decode(plainBuf)
