@@ -142,14 +142,21 @@ func (h *AttachmentHandler) Download(c *gin.Context) {
 	// unlike a media element, fetch enforces CORS on a redirect target.
 	// The presigned URL points at a different origin (the storage
 	// endpoint) that doesn't send CORS headers, so that path proxies the
-	// bytes through our own origin instead of redirecting.
+	// bytes through our own origin instead of redirecting. Only opaque
+	// (encrypted) blobs are served this way, so user-supplied plaintext
+	// files are never rendered from our origin.
 	if c.Query("raw") == "true" {
-		content, contentType, err := h.storage.Download(c.Request.Context(), att.StorageKey)
+		if att.ContentType != "application/octet-stream" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		content, _, err := h.storage.Download(c.Request.Context(), att.StorageKey)
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to load file"})
 			return
 		}
-		c.Data(http.StatusOK, contentType, content)
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Data(http.StatusOK, "application/octet-stream", content)
 		return
 	}
 
