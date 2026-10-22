@@ -1,11 +1,16 @@
 import { apiGet } from '@/shared/api/http'
 import { b64encode } from '@/shared/crypto/base64'
 import {
+  decryptBytesWithKey,
   decryptMessage,
+  encryptBytesWithKey,
   encryptKeyForRecipient,
   encryptMessage,
+  encryptWithKey,
+  generateAesKey,
   importPrivateKeyFromRawB64,
   importPublicKeyFromPEM,
+  unwrapAesKey,
   unwrapPrivateKeyRaw,
 } from '@/shared/crypto/e2ee'
 import {
@@ -93,16 +98,59 @@ export interface EncryptedForRoom {
   keys: Record<string, string>
 }
 
-/** Encrypts plaintext once, then wraps the AES key for every current room member. */
-export async function encryptForMembers(text: string, members: RoomMember[]): Promise<EncryptedForRoom> {
-  const { ciphertext, nonce, rawKey } = await encryptMessage(text)
+/** Wraps a raw AES key for every current room member (RSA-OAEP, one copy per recipient). */
+async function wrapKeyForMembers(rawKey: ArrayBuffer, members: RoomMember[]): Promise<Record<string, string>> {
   const keys: Record<string, string> = {}
   for (const member of members) {
     const pubKey = await getMemberPublicKey(member.id, member.public_key)
     if (!pubKey) continue
     keys[member.id] = await encryptKeyForRecipient(rawKey, pubKey)
   }
+  return keys
+}
+
+/** Encrypts plaintext once, then wraps the AES key for every current room member. */
+export async function encryptForMembers(text: string, members: RoomMember[]): Promise<EncryptedForRoom> {
+  const { ciphertext, nonce, rawKey } = await encryptMessage(text)
+  const keys = await wrapKeyForMembers(rawKey, members)
   return { ciphertext, nonce, keys }
+}
+
+/**
+ * Voice messages: one AES key encrypts both the audio bytes and the marker
+ * text that references them, so only one wrapped-key set needs sending.
+ * The audio must be encrypted (and uploaded) before the marker text can be
+ * built, since the marker embeds the server-assigned attachment id — see
+ * ChatProvider.sendVoiceMessage for the full ordering.
+ */
+export async function newVoiceKey() {
+  return generateAesKey()
+}
+
+export async function encryptAudioWithKey(aesKey: CryptoKey, audioBytes: ArrayBuffer) {
+  return encryptBytesWithKey(aesKey, audioBytes)
+}
+
+export async function finalizeVoiceMessage(
+  aesKey: CryptoKey,
+  rawKey: ArrayBuffer,
+  markerText: string,
+  members: RoomMember[],
+): Promise<EncryptedForRoom> {
+  const { ciphertext, nonce } = await encryptWithKey(aesKey, markerText)
+  const keys = await wrapKeyForMembers(rawKey, members)
+  return { ciphertext, nonce, keys }
+}
+
+/** Playback: re-derive the message's AES key from the viewer's own wrapped copy, then decrypt the audio bytes. */
+export async function decryptVoiceBlob(
+  ciphertext: ArrayBuffer,
+  audioNonce: string,
+  encryptedKeyForMe: string,
+  myPrivateKey: CryptoKey,
+): Promise<ArrayBuffer> {
+  const aesKey = await unwrapAesKey(encryptedKeyForMe, myPrivateKey)
+  return decryptBytesWithKey(aesKey, ciphertext, audioNonce)
 }
 
 export async function decryptForMe(

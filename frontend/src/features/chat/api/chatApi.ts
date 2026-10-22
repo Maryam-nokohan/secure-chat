@@ -37,6 +37,14 @@ export const chatApi = {
     form.append('file', file)
     return apiUpload<AttachmentResult>(`/rooms/${roomId}/attachments`, form)
   },
+
+  /** Uploads already-encrypted bytes (e.g. a voice note's ciphertext). The server stores them opaquely, without content sniffing. */
+  uploadEncryptedBlob: (roomId: string, data: ArrayBuffer) => {
+    const form = new FormData()
+    form.append('file', new Blob([data]), 'blob.bin')
+    form.append('encrypted', 'true')
+    return apiUpload<AttachmentResult>(`/rooms/${roomId}/attachments`, form)
+  },
 }
 
 // apiDelete is re-exported for symmetry even though nothing needs it yet
