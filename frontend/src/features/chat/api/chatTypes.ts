@@ -72,6 +72,15 @@ export interface AttachmentResult {
 /** Attachment marker embedded in a decrypted message body, e.g. [[file:<id>:<type>:<name>]] */
 export const FILE_MARKER = /^\[\[file:([0-9a-fA-F-]+):([^:]+):(.+)\]\]$/
 
+/**
+ * Voice note marker embedded in a decrypted message body, e.g.
+ * [[voice:<attachmentId>:<mimeType>:<durationSec>:<audioNonce>]]. The audio
+ * bytes behind <attachmentId> are themselves AES-GCM ciphertext, encrypted
+ * with the same per-message key that wraps this marker text; <audioNonce>
+ * is that encryption's own nonce (base64), needed to decrypt it.
+ */
+export const VOICE_MARKER = /^\[\[voice:([0-9a-fA-F-]+):([^:]+):(\d+):([A-Za-z0-9+/=]+)\]\]$/
+
 export function attachmentUrl(roomId: string, attachmentId: string): string {
   return `/rooms/${roomId}/attachments/${attachmentId}`
 }

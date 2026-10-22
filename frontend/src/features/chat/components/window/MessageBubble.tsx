@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import type { ChatMessage } from '../../state/ChatProvider'
 import { useChat } from '../../state/ChatProvider'
-import { FileAttachment, parseAttachment, StickerBubble } from './MessageAttachment'
+import { FileAttachment, parseAttachment, StickerBubble, VoiceNote } from './MessageAttachment'
 
 function fmtTime(iso: string): string {
   const d = new Date(iso)
@@ -62,6 +62,14 @@ export function MessageBubble({ message, showSender }: { message: ChatMessage; s
 
         {attachment?.kind === 'sticker' ? (
           <StickerBubble sticker={attachment.sticker} />
+        ) : attachment?.kind === 'voice' ? (
+          <VoiceNote
+            url={attachment.url}
+            durationSec={attachment.durationSec}
+            mimeType={attachment.contentType}
+            audioNonce={attachment.audioNonce}
+            encryptedKeyForMe={message.encryptedKeyForMe}
+          />
         ) : attachment?.kind === 'file' ? (
           <FileAttachment contentType={attachment.contentType} filename={attachment.filename} url={attachment.url} />
         ) : editing ? (
