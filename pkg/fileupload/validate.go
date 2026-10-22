@@ -43,7 +43,27 @@ var ChatAttachmentRule = Rule{
 		"video/webm":      "webm",
 		"video/ogg":       "ogv",
 		"video/quicktime": "mov",
+		// http.DetectContentType can't tell an audio-only WebM/Ogg container
+		// apart from a video one (same container signature), so a recorded
+		// voice note (MediaRecorder's audio/webm or audio/ogg output) sniffs
+		// as these instead. video/webm is already allowed above; Ogg needs
+		// its own entry since the sniffer reports it as application/ogg.
+		"application/ogg": "ogg",
 	},
+}
+
+// ValidateOpaque checks size/emptiness only, for payloads that are
+// ciphertext rather than a real media file (e.g. an encrypted voice note).
+// Sniffing the content type of AES-GCM output is meaningless - it's
+// indistinguishable from random bytes.
+func ValidateOpaque(data []byte, maxSize int64) error {
+	if len(data) == 0 {
+		return ErrEmptyFile
+	}
+	if int64(len(data)) > maxSize {
+		return fmt.Errorf("%w (max %d bytes)", ErrTooLarge, maxSize)
+	}
+	return nil
 }
 
 func Validate(data []byte, rule Rule) (mimeType, ext string, err error) {
