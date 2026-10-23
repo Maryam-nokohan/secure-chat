@@ -1,20 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { IconButton } from '@/shared/ui/IconButton'
 import { ApiError } from '@/shared/api/http'
-import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
+import { useVoiceRecorder, type VoiceRecording } from '../../hooks/useVoiceRecorder'
 import { useChat } from '../../state/ChatProvider'
 import { AttachMenu } from './AttachMenu'
 import { EmojiPicker } from './EmojiPicker'
 import { StickerPicker } from './StickerPicker'
+import { VoiceComposerBar } from './VoiceComposerBar'
 
 type Popover = 'none' | 'emoji' | 'sticker' | 'attach'
-
-function fmtElapsed(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  const r = s % 60
-  return `${m}:${r.toString().padStart(2, '0')}`
-}
 
 export function Composer() {
   const { sendMessage, sendAttachment, sendVoiceMessage } = useChat()
@@ -65,45 +59,33 @@ export function Composer() {
     textareaRef.current?.focus()
   }
 
-  async function handleStopAndSend() {
-    const result = await recorder.stop()
-    if (!result) return
+  async function sendRecording(rec: VoiceRecording): Promise<boolean> {
     setUploading(true)
     setUploadError(null)
     try {
-      await sendVoiceMessage(result.blob, result.mimeType, result.durationMs)
+      await sendVoiceMessage(rec.blob, rec.mimeType, rec.durationMs, rec.waveform)
+      return true
     } catch (err) {
       setUploadError(err instanceof ApiError ? err.message : 'Could not send that voice message.')
+      return false
     } finally {
       setUploading(false)
     }
   }
 
-  const recording = recorder.state === 'recording'
+  const voiceActive = recorder.state === 'recording' || recorder.state === 'preview'
 
   return (
     <div className="shrink-0 px-3 py-3 sm:px-5" style={{ borderTop: '1px solid var(--surface-border)', background: 'var(--surface-elevated)' }}>
-      {uploading && <p className="mb-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>{recording ? 'Sending voice message…' : 'Uploading attachment…'}</p>}
+      {uploading && (
+        <p className="mb-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+          {voiceActive ? 'Sending voice message…' : 'Uploading attachment…'}
+        </p>
+      )}
       {uploadError && <p className="mb-2 text-xs" style={{ color: '#fca5a5' }}>{uploadError}</p>}
-      {recording ? (
-        <div className="flex items-center gap-3 px-1">
-          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full" style={{ background: '#f43f5e' }} />
-          <span className="flex-1 text-sm tabular-nums" style={{ color: 'var(--text-primary)' }}>
-            {fmtElapsed(recorder.elapsedMs)}
-          </span>
-          <IconButton onClick={() => recorder.cancel()} aria-label="Cancel recording">
-            <CancelIcon />
-          </IconButton>
-          <button
-            type="button"
-            onClick={() => void handleStopAndSend()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-transform"
-            style={{ background: 'linear-gradient(135deg,var(--theme-accent),var(--theme-accent-light))', color: 'var(--theme-on-accent)' }}
-            aria-label="Send voice message"
-          >
-            <SendIcon />
-          </button>
-        </div>
+
+      {voiceActive ? (
+        <VoiceComposerBar recorder={recorder} sending={uploading} onSend={sendRecording} />
       ) : (
         <div className="flex items-end gap-1.5">
           <div className="relative">
@@ -180,13 +162,6 @@ function MicIcon() {
       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
       <path d="M12 19v4M8 23h8" />
-    </svg>
-  )
-}
-function CancelIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   )
 }

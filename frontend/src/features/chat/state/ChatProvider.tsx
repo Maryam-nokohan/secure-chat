@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { encodeWaveform } from "../lib/voiceWaveform";
 import { useNavigate } from "react-router";
 import { ApiError } from "@/shared/api/http";
 import { chatApi } from "../api/chatApi";
@@ -67,6 +68,7 @@ interface ChatContextValue extends ChatState {
     blob: Blob,
     mimeType: string,
     durationMs: number,
+    waveform?: Uint8Array,
   ) => Promise<void>;
   decryptVoiceNote: (
     encryptedKeyForMe: string | undefined,
@@ -542,7 +544,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const sendVoiceMessage = useCallback(
-    async (blob: Blob, mimeType: string, durationMs: number) => {
+    async (
+      blob: Blob,
+      mimeType: string,
+      durationMs: number,
+      waveform?: Uint8Array,
+    ) => {
       const roomId = activeRoomIdRef.current;
       const members = activeRoomProfileRef.current?.members;
       if (!roomId || !members || !state.me) return;
@@ -555,12 +562,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const { aesKey, rawKey } = await newVoiceKey();
       const { ciphertext: audioCiphertext, nonce: audioNonce } =
         await encryptAudioWithKey(aesKey, audioBytes);
-      const result = await chatApi.uploadEncryptedBlob(
-        roomId,
-        audioCiphertext,
-      );
+      const result = await chatApi.uploadEncryptedBlob(roomId, audioCiphertext);
       const baseMimeType = mimeType.split(";")[0];
-      const markerText = `[[voice:${result.id}:${baseMimeType}:${Math.round(durationMs / 1000)}:${audioNonce}]]`;
+      const wave =
+        waveform && waveform.length ? `:${encodeWaveform(waveform)}` : "";
+      const markerText = `[[voice:${result.id}:${baseMimeType}:${Math.max(1, Math.round(durationMs / 1000))}:${audioNonce}${wave}]]`;
       const { ciphertext, nonce, keys } = await finalizeVoiceMessage(
         aesKey,
         rawKey,
@@ -600,7 +606,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       // the storage endpoint, since fetch (unlike <audio src>) enforces
       // CORS on the redirect target and the storage endpoint doesn't send
       // CORS headers.
-      const res = await fetch(`${url}?raw=true`, { credentials: "same-origin" });
+      const res = await fetch(`${url}?raw=true`, {
+        credentials: "same-origin",
+      });
       if (!res.ok) throw new Error("failed to fetch voice note");
       const ciphertext = await res.arrayBuffer();
       const plainBuf = await decryptVoiceBlob(
