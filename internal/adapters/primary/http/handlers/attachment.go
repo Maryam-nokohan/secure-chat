@@ -64,10 +64,19 @@ func (h *AttachmentHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	contentType, ext, err := fileupload.Validate(content, fileupload.ChatAttachmentRule)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported or oversized file (images, PDF, or plain text, max 25MB)"})
-		return
+	var contentType, ext string
+	if c.PostForm("encrypted") == "true" {
+		if err := fileupload.ValidateOpaque(content, fileupload.ChatAttachmentRule.MaxSizeBytes); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "empty or oversized file"})
+			return
+		}
+		contentType, ext = "application/octet-stream", "bin"
+	} else {
+		contentType, ext, err = fileupload.Validate(content, fileupload.ChatAttachmentRule)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported or oversized file (images, PDF, or plain text, max 25MB)"})
+			return
+		}
 	}
 
 	filename, err := pkg.RandomFilename(ext)
@@ -125,6 +134,29 @@ func (h *AttachmentHandler) Download(c *gin.Context) {
 	att, err := h.repo.FindByID(c.Request.Context(), attID)
 	if err != nil || att.RoomID != roomID {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
+	// Voice-note playback decrypts the bytes client-side, which means
+	// fetch()-ing them rather than pointing <audio src> at the file - and
+	// unlike a media element, fetch enforces CORS on a redirect target.
+	// The presigned URL points at a different origin (the storage
+	// endpoint) that doesn't send CORS headers, so that path proxies the
+	// bytes through our own origin instead of redirecting. Only opaque
+	// (encrypted) blobs are served this way, so user-supplied plaintext
+	// files are never rendered from our origin.
+	if c.Query("raw") == "true" {
+		if att.ContentType != "application/octet-stream" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		content, _, err := h.storage.Download(c.Request.Context(), att.StorageKey)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to load file"})
+			return
+		}
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Data(http.StatusOK, "application/octet-stream", content)
 		return
 	}
 

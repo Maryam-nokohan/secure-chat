@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { encodeWaveform } from "../lib/voiceWaveform";
 import { useNavigate } from "react-router";
 import { ApiError } from "@/shared/api/http";
 import { chatApi } from "../api/chatApi";
@@ -21,8 +22,12 @@ import type {
 import { ChatSocket, type WsIncoming } from "../api/wsClient";
 import {
   decryptForMe,
+  decryptVoiceBlob,
+  encryptAudioWithKey,
   encryptForMembers,
+  finalizeVoiceMessage,
   loadMyPrivateKey,
+  newVoiceKey,
 } from "../crypto/messageCrypto";
 
 export interface ChatMessage {
@@ -35,6 +40,8 @@ export interface ChatMessage {
   edited: boolean;
   deleted: boolean;
   mine: boolean;
+  /** This viewer's wrapped copy of the message's AES key, needed to decrypt a voice note's audio bytes on demand. */
+  encryptedKeyForMe?: string;
 }
 
 interface ChatState {
@@ -57,6 +64,18 @@ interface ChatContextValue extends ChatState {
   selectRoom: (roomId: string) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   sendAttachment: (file: File) => Promise<void>;
+  sendVoiceMessage: (
+    blob: Blob,
+    mimeType: string,
+    durationMs: number,
+    waveform?: Uint8Array,
+  ) => Promise<void>;
+  decryptVoiceNote: (
+    encryptedKeyForMe: string | undefined,
+    audioNonce: string,
+    mimeType: string,
+    url: string,
+  ) => Promise<Blob>;
   editMessage: (messageId: string, newText: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   createRoom: (name: string) => Promise<RoomSummary | null>;
@@ -161,6 +180,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           edited: false,
           deleted: false,
           mine,
+          encryptedKeyForMe: msg.keys[myId],
         });
         break;
       }
@@ -176,7 +196,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           messagesByRoom: {
             ...s.messagesByRoom,
             [msg.room_id]: (s.messagesByRoom[msg.room_id] ?? []).map((m) =>
-              m.id === msg.message_id ? { ...m, content, edited: true } : m,
+              m.id === msg.message_id
+                ? {
+                    ...m,
+                    content,
+                    edited: true,
+                    encryptedKeyForMe: msg.keys[myId],
+                  }
+                : m,
             ),
           },
         }));
@@ -279,6 +306,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         edited: false,
         deleted: false,
         mine: m.sender_id === meRef.current?.id,
+        encryptedKeyForMe: m.encrypted_key,
       })),
     );
 
@@ -448,6 +476,34 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [state.me?.id],
   );
 
+  /** Sends an already-encrypted payload over the WS, marking the given optimistic entry failed if the socket isn't open. */
+  function sendEncryptedOrMarkFailed(
+    roomId: string,
+    optimisticId: string,
+    ciphertext: string,
+    nonce: string,
+    keys: Record<string, string>,
+  ) {
+    const sent = socketRef.current?.send({
+      type: "message",
+      room_id: roomId,
+      ciphertext,
+      nonce,
+      keys,
+    });
+    if (!sent) {
+      patch((s) => ({
+        ...s,
+        messagesByRoom: {
+          ...s.messagesByRoom,
+          [roomId]: (s.messagesByRoom[roomId] ?? []).map((m) =>
+            m.id === optimisticId ? { ...m, status: "failed" } : m,
+          ),
+        },
+      }));
+    }
+  }
+
   const sendMessage = useCallback(
     async (text: string) => {
       const roomId = activeRoomIdRef.current;
@@ -470,24 +526,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         text,
         members,
       );
-      const sent = socketRef.current?.send({
-        type: "message",
-        room_id: roomId,
-        ciphertext,
-        nonce,
-        keys,
-      });
-      if (!sent) {
-        patch((s) => ({
-          ...s,
-          messagesByRoom: {
-            ...s.messagesByRoom,
-            [roomId]: (s.messagesByRoom[roomId] ?? []).map((m) =>
-              m.id === optimisticId ? { ...m, status: "failed" } : m,
-            ),
-          },
-        }));
-      }
+      sendEncryptedOrMarkFailed(roomId, optimisticId, ciphertext, nonce, keys);
     },
     [state.me],
   );
@@ -502,6 +541,85 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       );
     },
     [sendMessage],
+  );
+
+  const sendVoiceMessage = useCallback(
+    async (
+      blob: Blob,
+      mimeType: string,
+      durationMs: number,
+      waveform?: Uint8Array,
+    ) => {
+      const roomId = activeRoomIdRef.current;
+      const members = activeRoomProfileRef.current?.members;
+      if (!roomId || !members || !state.me) return;
+
+      // One AES key encrypts both the audio bytes and the marker text that
+      // references them, so only one wrapped-key set has to be sent. The
+      // audio must be encrypted and uploaded first since the marker embeds
+      // the server-assigned attachment id.
+      const audioBytes = await blob.arrayBuffer();
+      const { aesKey, rawKey } = await newVoiceKey();
+      const { ciphertext: audioCiphertext, nonce: audioNonce } =
+        await encryptAudioWithKey(aesKey, audioBytes);
+      const result = await chatApi.uploadEncryptedBlob(roomId, audioCiphertext);
+      const baseMimeType = mimeType.split(";")[0];
+      const wave =
+        waveform && waveform.length ? `:${encodeWaveform(waveform)}` : "";
+      const markerText = `[[voice:${result.id}:${baseMimeType}:${Math.max(1, Math.round(durationMs / 1000))}:${audioNonce}${wave}]]`;
+      const { ciphertext, nonce, keys } = await finalizeVoiceMessage(
+        aesKey,
+        rawKey,
+        markerText,
+        members,
+      );
+
+      const optimisticId = fileMessageId();
+      appendOrReplace(roomId, {
+        id: optimisticId,
+        senderId: state.me.id,
+        username: state.me.username,
+        time: new Date().toISOString(),
+        content: markerText,
+        status: "sending",
+        edited: false,
+        deleted: false,
+        mine: true,
+        encryptedKeyForMe: keys[state.me.id],
+      });
+      sendEncryptedOrMarkFailed(roomId, optimisticId, ciphertext, nonce, keys);
+    },
+    [state.me],
+  );
+
+  const decryptVoiceNote = useCallback(
+    async (
+      encryptedKeyForMe: string | undefined,
+      audioNonce: string,
+      mimeType: string,
+      url: string,
+    ): Promise<Blob> => {
+      if (!encryptedKeyForMe || !privateKeyRef.current) {
+        throw new Error("missing key material to decrypt this voice note");
+      }
+      // ?raw=true: proxied through our own origin instead of a redirect to
+      // the storage endpoint, since fetch (unlike <audio src>) enforces
+      // CORS on the redirect target and the storage endpoint doesn't send
+      // CORS headers.
+      const res = await fetch(`${url}?raw=true`, {
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error("failed to fetch voice note");
+      const ciphertext = await res.arrayBuffer();
+      const plainBuf = await decryptVoiceBlob(
+        ciphertext,
+        audioNonce,
+        encryptedKeyForMe,
+        privateKeyRef.current,
+      );
+      return new Blob([plainBuf], { type: mimeType });
+    },
+    [],
   );
 
   const refreshAvatar = useCallback(async () => {
@@ -633,6 +751,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       selectRoom,
       sendMessage,
       sendAttachment,
+      sendVoiceMessage,
+      decryptVoiceNote,
       editMessage,
       deleteMessage,
       createRoom,
@@ -652,6 +772,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       selectRoom,
       sendMessage,
       sendAttachment,
+      sendVoiceMessage,
+      decryptVoiceNote,
       editMessage,
       deleteMessage,
       createRoom,
