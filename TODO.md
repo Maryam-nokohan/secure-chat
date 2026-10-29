@@ -3,13 +3,14 @@
 ## Backend
 
 * [x] Add OAuth authentication to registration & login
-* [ ] Add voice messages
+* [x] Add voice messages
 * [ ] Add voice calls
 * [ ] Add video calls
 * [ ] Add "I'm Not a Robot" verification system
 * [ ] forget your password btn
-* [ ] deleting & editing messages (mostly front)
+* [x] deleting & editing messages (mostly front)
 * [ ] CI/CD
+* [ ] Admin Panel / SNMP 
 
 ## Frontend
 
